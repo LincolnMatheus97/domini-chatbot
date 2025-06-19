@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -8,58 +6,72 @@ from flask_socketio import SocketIO, emit
 import base64
 import io
 from PIL import Image
+import fitz
 
 # --- Configuração Inicial ---
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
-# --- Cria a Aplicação Flask ---
+# --- Cria a Aplicação Flask e SocketIO ---
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # --- Configuração do Modelo Gemini ---
 modelo = genai.GenerativeModel("gemini-1.5-flash-latest")
-chat_texto = modelo.start_chat(history=[]) # Chat para conversas apenas de texto
+chat_texto = modelo.start_chat(history=[])
 
-# --- Eventos do Socket.IO ---
+# --- Funções do Socket.IO ---
 
 @socketio.on('conectar')
 def lidar_conexao():
-    """Esta função é chamada quando um novo usuário se conecta."""
     print('Cliente conectado com sucesso!')
 
-@socketio.on('enviar_mensagem') # Ouvindo o evento 'enviar_mensagem'
+@socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
-    """
-    Recebe uma mensagem do usuário via WebSocket, envia para o Gemini
-    e emite a resposta de volta para o mesmo usuário.
-    """
     mensagem_usuario = dados.get('mensagem', '')
-    dados_imagem = dados.get('imagem')
+    dados_arquivo = dados.get('arquivo')
 
-    print(f'Mensagem recebida: "{mensagem_usuario}"')
-    if dados_imagem:
-        print('Imagem recebida!')
+    conteudo_para_gemini = [mensagem_usuario]
+    resposta_final = ""
 
     try:
-        # --- LÓGICA ATUALIZADA ---
-        if dados_imagem:
-            # 1. Decodificar a imagem Base64
-            cabecalho, codificado = dados_imagem.split(",", 1)
+        if dados_arquivo:
+            print('Arquivo recebido!')
+            cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
-            
-            # 2. Abrir a imagem com a biblioteca PIL
-            imagem = Image.open(io.BytesIO(dados_binarios))
 
-            # 3. Enviar texto + imagem para o Gemini
-            resposta = modelo.generate_content([mensagem_usuario, imagem])
+            if 'image' in cabecalho:
+                print("Processando como imagem...")
+                imagem = Image.open(io.BytesIO(dados_binarios))
+                conteudo_para_gemini.append(imagem)
+                # Para multimodal, usamos model.generate_content
+                response = modelo.generate_content(conteudo_para_gemini)
+                resposta_final = response.text
+
+            elif 'pdf' in cabecalho:
+                print("Processando como PDF...")
+                texto_pdf = ""
+                with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
+                    for pagina in doc:
+                        texto_pdf += pagina.get_text()
+                
+                print(f"Texto extraído do PDF: {texto_pdf[:100]}...") # Log dos primeiros 100 caracteres
+                
+                # Adiciona o texto extraído ao prompt
+                conteudo_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
+                
+                # Envia como uma única string de texto para o chat
+                prompt_completo = "\n".join(map(str, conteudo_para_gemini))
+                response = chat_texto.send_message(prompt_completo)
+                resposta_final = response.text
         else:
-            # Se não houver imagem, usa o chat contínuo apenas de texto
-            resposta = chat_texto.send_message(mensagem_usuario)
-
+            # Se não houver arquivo, funciona como chat de texto contínuo
+            print(f'Mensagem de texto recebida: "{mensagem_usuario}"')
+            response = chat_texto.send_message(mensagem_usuario)
+            resposta_final = response.text
+        
         # Emite a resposta de volta para o frontend
-        # A chave do dicionário 'resposta' deve ser a mesma lida no script.js
-        emit('resposta_servidor', {'resposta': resposta.text})
+        emit('resposta_servidor', {'resposta': resposta_final})
 
     except Exception as e:
         print(f'Erro: {str(e)}')
