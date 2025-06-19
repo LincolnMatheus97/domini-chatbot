@@ -4,7 +4,7 @@ body {
     background-color: #1c1c1c;
     color: #e0e0e0;
     display: flex;
-    justify-content: center;
+    justify-content: column;
     align-items: center;
     height: 100vh;
     margin: 0;
@@ -26,6 +26,19 @@ header {
 
 header h1 {
     font-size: 1.6rem;
+}
+
+main {
+    flex-grow: 1; 
+    font-family: Arial, sans-serif;
+    text-align: center;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center; 
+    padding: 20px 15px;
+    width: 100%;
+    gap: 20px;
 }
 
 footer{
