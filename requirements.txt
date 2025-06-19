@@ -1,5 +1,6 @@
 google-generativeai
 pillow
 python-dotenv
-Flask
+flask
+flask-socketio
 gunicorn
