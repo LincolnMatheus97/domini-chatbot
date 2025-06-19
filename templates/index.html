@@ -19,14 +19,30 @@
                 </div>
             </div>
             <form id="formulario_mensagem">
-                <input type="text" id="input_mensagem" placeholder="Digite sua mensagem..." autocomplete="off">
-                <input type="file" id="input_imagem" accept="image/*">
-                <label for="input_imagem" class="botao_icone" style="cursor: pointer;" title="Anexar imagem">
+                <div id="preview_anexo" class="hidden">
+                    <img id="preview_imagem" src="#" alt="Preview da Imagem"/>
+                    <span id="preview_pdf_nome"></span>
+                    <button type="button" id="remover_anexo_btn">&times;</button>
+                </div>
+
+                <div id="area_input">
+                    <button type="button" id="botao_abrir_menu" class="botao_icone" title="Anexar arquivo">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.586 10.414l-6.072-6.072a2 2 0 0 0-2.828 0L2.414 14.586a2 2 0 0 0 0 2.828l6.072 6.072a2 2 0 0 0 2.828 0l10.272-10.272a2 2 0 0 0 0-2.828zM8.414 21.586l-6-6a.002.002 0 0 1 0-.002l6.072-6.07L18.758 15H14a1 1 0 0 0-1 1v4.758l-4.586.828zM10 17h2v-4h4v-2h-4V7h-2v4H6v2h4v4zm10.586-9.172l-1.414 1.414-4-4 1.414-1.414a.002.002 0 0 1 .002 0l4 4a.002.002 0 0 1-.002.002z"/></svg>
-                </label>
-                <button type="submit" class="botao_icone" title="Enviar mensagem">
+                    </button>
+
+                    <div id="menu_anexo" class="hidden">
+                        <button type="button" id="anexar_imagem_btn">Imagem</button>
+                        <button type="button" id="anexar_pdf_btn">PDF</button>
+                    </div>
+
+                    <input type="text" id="input_mensagem" placeholder="Digite sua mensagem ou descreva o anexo..." autocomplete="off">
+        
+                    <input type="file" id="input_arquivo" class="hidden">
+
+                    <button type="submit" class="botao_icone" title="Enviar mensagem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-                </button>
+                    </button>
+                </div>
             </form>
         </div>
     </main>

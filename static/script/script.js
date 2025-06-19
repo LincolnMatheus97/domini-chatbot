@@ -3,86 +3,141 @@ function getById(id) {
     return document.getElementById(id);
 }
 
-function enviarMensagem(id, funcao) {
+function enviarFormulario(id, funcao) {
     getById(id).addEventListener('submit', funcao);
 }
 
-function enviarImagem(id, funcao) {
+function enviarArquivo(id, funcao) {
     getById(id).addEventListener('change', funcao);
 }
 
-// --- 1. Conexão e Seleção de Elementos ---
-const socket = io();
+function capturarClick(id, funcao) {
+    getById(id).addEventListener('click', funcao);
+}
 
-// Selecionando os elementos do HTML uma única vez
-const caixaChat = getById('caixa_chat');
-const inputMensagem = getById('input_mensagem');
-const inputImagem = getById('input_imagem');
+document.addEventListener('DOMContentLoaded', () => {
+
+    // --- 1. Seleção de Elementos ---
+    const socket = io();
+    const caixaChat = getById('caixa_chat');
+    const inputMensagem = getById('input_mensagem');
+    const inputArquivo = getById('input_arquivo');
+    const previewAnexo = getById('preview_anexo');
+    const previewImagem = getById('preview_imagem');
+    const previewPdfNome = getById('preview_pdf_nome');
+
+    let anexoTemporario = null;
+
+    // --- 2. Ligando os Eventos às Funções de Callback ---
+    
+    capturarClick('botao_abrir_menu', lidarCliqueMenu);
+    capturarClick('anexar_imagem_btn', lidarCliqueAnexarImagem);
+    capturarClick('anexar_pdf_btn', lidarCliqueAnexarPdf);
+    capturarClick('remover_anexo_btn', lidarCliqueRemoverAnexo);
+    enviarArquivo('input_arquivo', lidarSelecaoDeArquivo);
+    enviarFormulario('formulario_mensagem', lidarEnvioDoFormulario);
 
 
-// --- 2. Definição das Funções de Callback ---
-enviarMensagem('formulario_mensagem', lidarEnvioDeTexto);
-enviarImagem('input_imagem', lidarSelecaoDeImagem);
-
-function lidarEnvioDeTexto(evento) {
-    evento.preventDefault(); // Impede o recarregamento da página
-
-    const textoMensagem = inputMensagem.value.trim();
-
-    if (textoMensagem) {
-        adicionarMensagem(textoMensagem, 'mensagem_usuario');
-        socket.emit('enviar_mensagem', { mensagem: textoMensagem });
+    // --- 3. Definição das Funções de Callback ---
+    
+    function lidarCliqueMenu() {
+        const menuAnexo = getById('menu_anexo');
+        menuAnexo.classList.toggle('hidden');
     }
 
-    inputMensagem.value = ''; // Limpa o campo de input
-}
+    function lidarCliqueAnexarImagem() {
+        inputArquivo.accept = 'image/*';
+        inputArquivo.click();
+        getById('menu_anexo').classList.add('hidden');
+    }
 
-function lidarSelecaoDeImagem(evento) {
-    const arquivo = evento.target.files[0];
-    if (!arquivo) return;
+    function lidarCliqueAnexarPdf() {
+        inputArquivo.accept = 'application/pdf';
+        inputArquivo.click();
+        getById('menu_anexo').classList.add('hidden');
+    }
 
-    const leitor = new FileReader();
+    function lidarSelecaoDeArquivo(evento) {
+        const arquivo = evento.target.files[0];
+        if (!arquivo) return;
 
-    leitor.onload = function (eventoLeitor) {
-        const dadosImagem = eventoLeitor.target.result;
+        const leitor = new FileReader();
+        leitor.onload = function (eventoLeitor) {
+            anexoTemporario = {
+                dados: eventoLeitor.target.result,
+                nome: arquivo.name,
+                tipo: arquivo.type
+            };
+            mostrarPreview();
+        };
+        leitor.readAsDataURL(arquivo);
+    }
 
-        adicionarMensagem('', 'mensagem_usuario', dadosImagem);
+    function lidarEnvioDoFormulario(evento) {
+        evento.preventDefault();
+        const textoMensagem = inputMensagem.value.trim();
 
-        socket.emit('enviar_mensagem', {
-            mensagem: "Descreva esta imagem para mim, em português.",
-            imagem: dadosImagem
-        });
-    };
+        if (!textoMensagem && !anexoTemporario) return;
 
-    leitor.readAsDataURL(arquivo);
-}
+        adicionarMensagem(textoMensagem, 'mensagem_usuario', anexoTemporario ? anexoTemporario.dados : null);
 
-// --- 3. Lógica para Receber Mensagens do Servidor ---
-socket.on('resposta_servidor', (dados) => {
-    adicionarMensagem(dados.resposta, 'mensagem_bot');
+        const dadosParaEnviar = {
+            mensagem: textoMensagem || (anexoTemporario.tipo.includes('image') ? 'Descreva esta imagem para mim.' : 'Resuma o conteúdo deste PDF para mim.')
+        };
+        if (anexoTemporario) {
+            dadosParaEnviar.arquivo = anexoTemporario.dados;
+        }
+        
+        socket.emit('enviar_mensagem', dadosParaEnviar);
+
+        inputMensagem.value = '';
+        lidarCliqueRemoverAnexo(); // Reutilizando a função de remover anexo
+    }
+
+    // --- 4. Funções Auxiliares e Listeners do Socket ---
+    function mostrarPreview() {
+        if (!anexoTemporario) return;
+        if (anexoTemporario.tipo.includes('image')) {
+            previewImagem.src = anexoTemporario.dados;
+            previewImagem.classList.remove('hidden');
+            previewPdfNome.classList.add('hidden');
+        } else {
+            previewPdfNome.textContent = anexoTemporario.nome;
+            previewImagem.classList.add('hidden');
+            previewPdfNome.classList.remove('hidden');
+        }
+        previewAnexo.classList.remove('hidden');
+    }
+
+    function lidarCliqueRemoverAnexo() {
+        anexoTemporario = null;
+        inputArquivo.value = '';
+        previewAnexo.classList.add('hidden');
+    }
+    
+    function adicionarMensagem(texto, classeCss, dadosImagem = null) {
+        const elementoMensagem = document.createElement('div');
+        elementoMensagem.classList.add('mensagem', classeCss);
+        if (texto) {
+            const textoEl = document.createElement('p');
+            textoEl.innerText = texto;
+            elementoMensagem.appendChild(textoEl);
+        }
+        if (dadosImagem && dadosImagem.startsWith('data:image')) {
+            const imgEl = document.createElement('img');
+            imgEl.src = dadosImagem;
+            elementoMensagem.appendChild(imgEl);
+        }
+        caixaChat.appendChild(elementoMensagem);
+        caixaChat.scrollTop = caixaChat.scrollHeight;
+    }
+    
+    socket.on('resposta_servidor', (dados) => {
+        adicionarMensagem(dados.resposta, 'mensagem_bot');
+    });
+
+    socket.on('conectar', () => {
+        socket.emit('conectar');
+        console.log('Conectado ao servidor!');
+    });
 });
-
-socket.on('conectar', () => {
-    socket.emit('conectar');
-    console.log('Conectado ao servidor com sucesso! ID:', socket.id);
-});
-
-
-// --- 4. Função Auxiliar para Adicionar Mensagens na Tela ---
-function adicionarMensagem(texto, classeCss, dadosImagem = null) {
-    const elementoMensagem = document.createElement('div');
-    elementoMensagem.classList.add('mensagem', classeCss);
-
-    if (texto) {
-        elementoMensagem.innerText = texto;
-    }
-
-    if (dadosImagem) {
-        const elementoImg = document.createElement('img');
-        elementoImg.src = dadosImagem;
-        elementoMensagem.appendChild(elementoImg);
-    }
-
-    caixaChat.appendChild(elementoMensagem);
-    caixaChat.scrollTop = caixaChat.scrollHeight;
-}
