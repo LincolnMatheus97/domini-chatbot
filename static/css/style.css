@@ -58,11 +58,11 @@ footer {
     justify-content: space-around; 
     text-align: center;
     padding: 15px;
-    margin: 10px;
+    margin: 20px;
     border-radius: 6px;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05); 
     flex-shrink: 0; 
-    gap: 10px; 
+    gap: 20px; 
 }
 
 /* IDs e Classes Traduzidos */
