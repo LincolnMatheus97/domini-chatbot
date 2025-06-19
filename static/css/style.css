@@ -12,9 +12,10 @@ html, body {
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #1c1c1c;
+    color: #e0e0e0;
     display:flex;
     flex-direction: column;
-    min-height: 100%;
+    min-height: 100vh;
 }
 
 header {
@@ -37,16 +38,13 @@ header h1 {
 }
 
 main {
-    flex-grow: 1; 
-    font-family: Arial, sans-serif;
-    text-align: center;
+    flex-grow: 1;
     display: flex;
-    flex-direction: row;
+    justify-content: center;
     align-items: center;
-    justify-content: center; 
-    padding: 20px 15px;
+    padding: 0 10px;
     width: 100%;
-    gap: 20px;
+    overflow: hidden;
 }
 
 footer {
@@ -62,15 +60,16 @@ footer {
     border-radius: 6px;
     box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05); 
     flex-shrink: 0; 
-    gap: 20px; 
+    gap: 10px; 
 }
 
 /* IDs e Classes Traduzidos */
 
 #chat_container {
-    width: 90%;
-    max-width: 600px;
-    height: 80vh;
+    width: 100%;
+    max-width: 700px;
+    height: 100%; 
+    max-height: 95%;
     background-color: #2d2d2d;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
@@ -93,6 +92,7 @@ footer {
     border-radius: 18px;
     max-width: 75%;
     line-height: 1.4;
+    word-wrap: break-word;
 }
 
 .mensagem_usuario {
@@ -122,6 +122,7 @@ footer {
     border-top: 1px solid #424242;
     background-color: #2d2d2d;
     align-items: center;
+    flex-shrink: 0;
 }
 
 #input_mensagem {
@@ -172,4 +173,46 @@ footer {
 #imagem-git {
     width: 35px; 
     height: 35px; 
+}
+
+/* Media Query para Tablets (orientação retrato e celulares maiores) */
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.4rem;
+    }
+
+    #chat_container {
+        max-height: 100%;
+    }
+
+    #imagem-git {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* Media Query para Celulares Menores */
+@media (max-width: 480px) {
+    body {
+        gap: 0;
+    }
+
+    header h1 {
+        font-size: 1.3rem;
+    }
+    
+    footer {
+        font-size: 0.85rem;
+        padding: 10px;
+        min-height: auto;
+    }
+
+    .div-footer figure figcaption {
+        font-size: 0.75rem;
+    }
+
+    #imagem-git {
+        width: 25px;
+        height: 25px;
+    }
 }
