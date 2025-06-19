@@ -11,8 +11,7 @@ html, body {
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #fffdfd;
-    color:#000000;
+    background-color: #1c1c1c;
     display:flex;
     flex-direction: column;
     min-height: 100%;
@@ -20,7 +19,8 @@ body {
 
 header {
     min-height: 60px;
-    background-color: #4e4e4e;
+    background-color: #2d2d2d;
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -51,7 +51,8 @@ main {
 
 footer {
     min-height: 60px;
-    background-color: #4e4e4e;
+    background-color: #2d2d2d;
+    color:white;
     display: flex;
     align-items: center;
     justify-content: space-around; 
