@@ -1,4 +1,4 @@
-google-generative-ai
+google-generativeai
 pillow
 python-dotenv
 Flask
