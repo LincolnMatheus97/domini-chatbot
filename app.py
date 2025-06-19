@@ -1,5 +1,3 @@
-# api_gemini.py
-
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
@@ -13,11 +11,10 @@ genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 app = Flask(__name__)
 
 # --- Configuração do Modelo Gemini ---
-model = genai.GenerativeModel("gemini-1.5-pro-latest") # Ou o modelo que preferir
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
 chat = model.start_chat(history=[])
 
 # --- Criação do Endpoint da API ---
-# Este endpoint estará disponível em http://seu-dominio/chat
 @app.route('/chat', methods=['POST'])
 def handle_chat():
     # Pega a mensagem enviada pelo frontend no formato JSON
@@ -43,7 +40,5 @@ def handle_chat():
 def index():
     return "API do Chatbot Gemini está no ar!"
 
-# Esta parte abaixo (if __name__ == '__main__':) é apenas para testes locais
-# O Gunicorn não irá executá-la
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
