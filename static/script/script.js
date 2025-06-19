@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!textoMensagem && !anexoTemporario) return;
 
-        adicionarMensagem(textoMensagem, 'mensagem_usuario', anexoTemporario ? anexoTemporario.dados : null);
+        adicionarMensagem(textoMensagem, 'mensagem_usuario', anexoTemporario);
 
         const dadosParaEnviar = {
             mensagem: textoMensagem || (anexoTemporario.tipo.includes('image') ? 'Descreva esta imagem para mim.' : 'Resuma o conteúdo deste PDF para mim.')
