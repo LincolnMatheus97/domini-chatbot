@@ -36,10 +36,9 @@ def handle_user_message(data):
         print('Imagem recebida!')
 
     try:
-        # --- LÓGICA ATUALIZADA ---
+        # --- LÓGICA ---
         if image_data:
             # 1. Decodificar a imagem Base64
-            # A imagem vem como "data:image/jpeg;base64,ABCD...", precisamos tirar o cabeçalho
             header, encoded = image_data.split(",", 1)
             binary_data = base64.b64decode(encoded)
             
@@ -47,10 +46,9 @@ def handle_user_message(data):
             img = Image.open(io.BytesIO(binary_data))
 
             # 3. Enviar texto + imagem para o Gemini
-            # Para multimodal, usamos model.generate_content com uma lista de conteúdos
             response = model.generate_content([user_message, img])
         else:
-            # Se não houver imagem, funciona como antes (só texto)
+            # Se não houver imagem, funciona só texto
             response = chat.send_message(user_message)
 
         # Emite a resposta de volta para o frontend
