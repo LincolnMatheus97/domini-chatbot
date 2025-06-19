@@ -1,0 +1,106 @@
+/* Estilização Geral */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1c1c1c;
+    color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Container Principal do Chat */
+#chat-container {
+    width: 90%;
+    max-width: 600px;
+    height: 80vh;
+    background-color: #2d2d2d;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Caixa de Mensagens */
+#chat-box {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Estilo das Bolhas de Mensagem */
+.message {
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 75%;
+    line-height: 1.4;
+}
+
+.user-message {
+    background-color: #4a90e2;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+}
+
+.bot-message {
+    background-color: #424242;
+    color: #e0e0e0;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+}
+
+.bot-message img,
+.user-message img {
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 5px;
+}
+
+/* Formulário de Input */
+#message-form {
+    display: flex;
+    padding: 15px;
+    border-top: 1px solid #424242;
+    background-color: #2d2d2d;
+    align-items: center;
+}
+
+#message-input {
+    flex-grow: 1;
+    background-color: #424242;
+    border: none;
+    padding: 12px;
+    border-radius: 20px;
+    color: white;
+    font-size: 16px;
+    outline: none;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: 10px;
+}
+
+.icon-button svg {
+    width: 24px;
+    height: 24px;
+    fill: #a0a0a0;
+    transition: fill 0.2s;
+}
+
+.icon-button:hover svg {
+    fill: #e0e0e0;
+}
+
+#image-input {
+    display: none;
+}
