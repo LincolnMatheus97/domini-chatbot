@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previewAnexo.classList.add('hidden');
     }
     
-    function adicionarMensagem(texto, classeCss, dadosImagem = null) {
+    function adicionarMensagem(texto, classeCss, anexo = null) {
         const elementoMensagem = document.createElement('div');
         elementoMensagem.classList.add('mensagem', classeCss);
         if (texto) {
@@ -123,11 +123,26 @@ document.addEventListener('DOMContentLoaded', () => {
             textoEl.innerText = texto;
             elementoMensagem.appendChild(textoEl);
         }
-        if (dadosImagem && dadosImagem.startsWith('data:image')) {
-            const imgEl = document.createElement('img');
-            imgEl.src = dadosImagem;
-            elementoMensagem.appendChild(imgEl);
+        if (anexo) {
+            if (anexo.tipo.includes('image')) {
+                const imgEl = document.createElement('img');
+                imgEl.src = anexo.dados;
+                elementoMensagem.appendChild(imgEl);
+            } else if (anexo.tipo.includes('pdf')) {
+                const linkPdf = document.createElement('a');
+                linkPdf.href = anexo.dados;
+                linkPdf.target = '_blank';
+                linkPdf.rel = 'noopener noreferrer';
+                linkPdf.classList.add('link-pdf');
+
+                linkPdf.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24"><path d="M220-200h520v-240H220v240Zm260-320q17 0 28.5-11.5T520-560q0-17-11.5-28.5T480-600q-17 0-28.5 11.5T440-560q0 17 11.5 28.5T480-520Zm-40-200h160v-120H440v120Zm160 480v-120H360v120h240ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h360l200 200v520q0 24-18 42t-42 18H220Zm360-560v-120H220v680h520v-560H580Z"/></svg>
+                    <span>${anexo.nome}</span>
+                `;
+                elementoMensagem.appendChild(linkPdf);
+            }
         }
+
         caixaChat.appendChild(elementoMensagem);
         caixaChat.scrollTop = caixaChat.scrollHeight;
     }
