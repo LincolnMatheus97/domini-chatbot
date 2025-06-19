@@ -3,6 +3,9 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
+import base64
+import io
+from PIL import Image
 
 # --- Configuração Inicial ---
 load_dotenv()
@@ -25,23 +28,37 @@ def handle_connect():
 
 @socketio.on('handle_message') # Ouvindo o evento 'handle_message'
 def handle_user_message(data):
-    """
-    Recebe uma mensagem do usuário via WebSocket, envia para o Gemini
-    e emite a resposta de volta para o mesmo usuário.
-    """
-    user_message = data['message']
-    print(f'Mensagem recebida: {user_message}')
-    
+    user_message = data.get('message', '') # Pega a mensagem, se existir
+    image_data = data.get('image') # Pega a imagem, se existir
+
+    print(f'Mensagem recebida: "{user_message}"')
+    if image_data:
+        print('Imagem recebida!')
+
     try:
-        # Envia a mensagem para o Gemini
-        response = chat.send_message(user_message)
-        
-        # Emite um evento 'server_response' de volta para o frontend
+        # --- LÓGICA ATUALIZADA ---
+        if image_data:
+            # 1. Decodificar a imagem Base64
+            # A imagem vem como "data:image/jpeg;base64,ABCD...", precisamos tirar o cabeçalho
+            header, encoded = image_data.split(",", 1)
+            binary_data = base64.b64decode(encoded)
+            
+            # 2. Abrir a imagem com a biblioteca PIL (Pillow)
+            img = Image.open(io.BytesIO(binary_data))
+
+            # 3. Enviar texto + imagem para o Gemini
+            # Para multimodal, usamos model.generate_content com uma lista de conteúdos
+            response = model.generate_content([user_message, img])
+        else:
+            # Se não houver imagem, funciona como antes (só texto)
+            response = chat.send_message(user_message)
+
+        # Emite a resposta de volta para o frontend
         emit('server_response', {'reply': response.text})
-        
+
     except Exception as e:
         print(f'Erro: {str(e)}')
-        emit('server_response', {'reply': f'Ocorreu um erro: {str(e)}'})
+        emit('server_response', {'reply': f'Ocorreu um erro ao processar sua solicitação: {str(e)}'})
 
 # --- Rota HTTP para verificar se a API está no ar  ---
 @app.route('/')
