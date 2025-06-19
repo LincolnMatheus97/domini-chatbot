@@ -8,6 +8,9 @@
     <title>L²NT Chat</title>
 </head>
 <body>
+    <header>
+        <h1>L²NT - CHAT</h1>
+    </header>
     <div id="chat-container">
         <div id="chat-box">
             <div class="message bot-message">
@@ -25,6 +28,30 @@
             </button>
         </form>
     </div>
+    <footer>
+        <div>
+           <p>
+            Desenvolvido por <strong>Lincoln Matheus</strong>
+            <br>
+            2025. Todos os direitos reservados
+            </p> 
+        </div>
+        <br>
+        <div class="div-footer">
+            <figure>
+                <a href="https://github.com/LincolnMatheus97/api_gemini.git" target="_blank" >
+                <img src="{{ url_for('static', filename='images/repositorio.png')}}" alt="gitHubProjeto" id="imagem-git">
+                </a>
+                <figcaption>Repositório Git do <em>Projeto</em>!</figcaption>
+            </figure>
+            <figure>
+                <a href="https://github.com/LincolnMatheus97" target="_blank" >
+                <img src="{{ url_for('static', filename='images/git.png')}}" alt="meuGit" id="imagem-git">
+                </a>
+                <figcaption>Meu Perfil no<em> GitHub</em>!</figcaption>
+            </figure>
+        </div>
+    </footer>
     <script src="{{ url_for('static', filename='script/script.js') }}"></script>
 </body>
 </html>

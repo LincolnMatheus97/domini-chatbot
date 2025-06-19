@@ -10,6 +10,39 @@ body {
     margin: 0;
 }
 
+header {
+    min-height: 60px;
+    background-color: #4e4e4e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px 15px; 
+    margin: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+    flex-shrink: 0; 
+}
+
+header h1 {
+    font-size: 1.6rem;
+}
+
+footer{
+    min-height: 60px;
+    background-color: #4e4e4e;
+    display: flex;
+    align-items: center;
+    justify-content: space-around; 
+    text-align: center;
+    padding: 15px;
+    margin: 10px;
+    border-radius: 6px;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05); 
+    flex-shrink: 0; 
+    gap: 10px; 
+}
+
 /* Container Principal do Chat */
 #chat-container {
     width: 90%;

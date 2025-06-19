@@ -13,7 +13,6 @@ function enviarImagem(id, funcao) {
     return getById(id);
 }
 
-
 // --- 1. Conexão com o Backend ---
 const socket = io();
 
