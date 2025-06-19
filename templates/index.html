@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <title>L²NT Chat</title>
 </head>
@@ -12,19 +12,19 @@
         <h1>L²NT - CHAT</h1>
     </header>
     <main>
-        <div id="chat-container">
-            <div id="chat-box">
-                <div class="message bot-message">
+        <div id="chat_container">
+            <div id="caixa_chat">
+                <div class="mensagem mensagem_bot">
                     Olá! Como posso te ajudar hoje?
                 </div>
             </div>
-            <form id="message-form">
-                <input type="text" id="message-input" placeholder="Digite sua mensagem..." autocomplete="off">
-                <input type="file" id="image-input" accept="image/*">
-                <label for="image-input" class="icon-button" style="cursor: pointer;" title="Anexar imagem">
+            <form id="formulario_mensagem">
+                <input type="text" id="input_mensagem" placeholder="Digite sua mensagem..." autocomplete="off">
+                <input type="file" id="input_imagem" accept="image/*">
+                <label for="input_imagem" class="botao_icone" style="cursor: pointer;" title="Anexar imagem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.586 10.414l-6.072-6.072a2 2 0 0 0-2.828 0L2.414 14.586a2 2 0 0 0 0 2.828l6.072 6.072a2 2 0 0 0 2.828 0l10.272-10.272a2 2 0 0 0 0-2.828zM8.414 21.586l-6-6a.002.002 0 0 1 0-.002l6.072-6.07L18.758 15H14a1 1 0 0 0-1 1v4.758l-4.586.828zM10 17h2v-4h4v-2h-4V7h-2v4H6v2h4v4zm10.586-9.172l-1.414 1.414-4-4 1.414-1.414a.002.002 0 0 1 .002 0l4 4a.002.002 0 0 1-.002.002z"/></svg>
                 </label>
-                <button type="submit" class="icon-button" title="Enviar mensagem">
+                <button type="submit" class="botao_icone" title="Enviar mensagem">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
                 </button>
             </form>

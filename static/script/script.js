@@ -16,78 +16,79 @@ function enviarImagem(id, funcao) {
 // --- 1. Conexão com o Backend ---
 const socket = io();
 
-// Selecionando os elementos do HTML
-const chatBox = getById('chat-box');
-const messageForm = getById('message-form');
-const messageInput = getById('message-input');
-const imageInput = getById('image-input');
+// Selecionando os elementos do HTML pelos novos IDs
+const caixaChat = document.getElementById('caixa_chat');
+const formularioMensagem = document.getElementById('formulario_mensagem');
+const inputMensagem = document.getElementById('input_mensagem');
+const inputImagem = document.getElementById('input_imagem');
 
-// --- 2. Lógica para Enviar Mensagens ---
-messageForm.addEventListener('submit', (e) => {
-    e.preventDefault(); // Impede o recarregamento da página
+// --- 2. Lógica para Enviar Mensagens de Texto ---
+formularioMensagem.addEventListener('submit', (evento) => {
+    evento.preventDefault(); // Impede o recarregamento da página
 
-    const messageText = messageInput.value.trim();
+    const textoMensagem = inputMensagem.value.trim();
 
-    if (messageText) {
+    if (textoMensagem) {
         // Adiciona a mensagem do usuário na tela
-        addMessage(messageText, 'user-message');
-        // Envia a mensagem para o servidor via WebSocket
-        socket.emit('handle_message', { message: messageText});
+        adicionarMensagem(textoMensagem, 'mensagem_usuario');
+        // Envia a mensagem para o servidor com o novo nome de evento
+        socket.emit('enviar_mensagem', { mensagem: textoMensagem });
     }
 
     // Limpa o campo de texto
-    messageInput.value = '';
+    inputMensagem.value = '';
 });
 
-// --- Lógica para Enviar Imagens ---
-imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+// --- 3. Lógica para Enviar Imagens ---
+inputImagem.addEventListener('change', (evento) => {
+    const arquivo = evento.target.files[0];
+    if (!arquivo) return;
 
-    const reader = new FileReader();
-    reader.onload = function (event) {
-        const imageData = event.target.result; // A imagem em formato base64
+    const leitor = new FileReader();
+    leitor.onload = function (evento) {
+        const dadosImagem = evento.target.result; // A imagem em formato base64
 
         // Adiciona a imagem na tela do usuário
-        addMessage('', 'user-message', imageData);
+        adicionarMensagem('', 'mensagem_usuario', dadosImagem);
 
-        // Envia a imagem e um texto opcional para o servidor
-        // (O backend atual só processa texto, mas está preparado para receber mais)
-        // Para o Gemini analisar a imagem, o backend precisa ser ajustado.
-        socket.emit('handle_message', {
-            message: "Descreva esta imagem para mim. em Português-Br",
-            image: imageData
+        // Envia a imagem e um texto para o servidor
+        socket.emit('enviar_mensagem', {
+            mensagem: "Descreva esta imagem para mim, em português.",
+            imagem: dadosImagem
         });
     };
-    reader.readAsDataURL(file);
+    leitor.readAsDataURL(arquivo);
 });
 
 
-// --- 3. Lógica para Receber Mensagens ---
-socket.on('server_response', (data) => {
-    addMessage(data.reply, 'bot-message');
+// --- 4. Lógica para Receber Mensagens do Servidor ---
+// Ouvindo o novo nome de evento e usando a nova chave de dados
+socket.on('resposta_servidor', (dados) => {
+    adicionarMensagem(dados.resposta, 'mensagem_bot');
 });
 
-socket.on('connect', () => {
+socket.on('conectar', () => {
+    // Emitindo um evento 'conectar' para o backend registrar a conexão
+    socket.emit('conectar');
     console.log('Conectado ao servidor com sucesso! ID:', socket.id);
 });
 
-// --- 4. Função Auxiliar para Adicionar Mensagens na Tela ---
-function addMessage(text, className, imageData = null) {
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', className);
+// --- 5. Função Auxiliar para Adicionar Mensagens na Tela ---
+function adicionarMensagem(texto, classeCss, dadosImagem = null) {
+    const elementoMensagem = document.createElement('div');
+    elementoMensagem.classList.add('mensagem', classeCss);
 
-    if (text) {
-        messageElement.innerText = text;
+    if (texto) {
+        elementoMensagem.innerText = texto;
     }
 
-    if (imageData) {
-        const imgElement = document.createElement('img');
-        imgElement.src = imageData;
-        messageElement.appendChild(imgElement);
+    if (dadosImagem) {
+        const elementoImg = document.createElement('img');
+        elementoImg.src = dadosImagem;
+        elementoMensagem.appendChild(elementoImg);
     }
 
-    chatBox.appendChild(messageElement);
+    caixaChat.appendChild(elementoMensagem);
     // Rola a caixa de chat para a última mensagem
-    chatBox.scrollTop = chatBox.scrollHeight;
+    caixaChat.scrollTop = caixaChat.scrollHeight;
 }
