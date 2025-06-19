@@ -33,7 +33,7 @@ messageForm.addEventListener('submit', (e) => {
         // Adiciona a mensagem do usuário na tela
         addMessage(messageText, 'user-message');
         // Envia a mensagem para o servidor via WebSocket
-        socket.emit('handle_message', { message: messageText });
+        socket.emit('handle_message', { message: messageText});
     }
 
     // Limpa o campo de texto
@@ -56,7 +56,7 @@ imageInput.addEventListener('change', (e) => {
         // (O backend atual só processa texto, mas está preparado para receber mais)
         // Para o Gemini analisar a imagem, o backend precisa ser ajustado.
         socket.emit('handle_message', {
-            message: "Descreva esta imagem para mim.",
+            message: "Descreva esta imagem para mim. em Português-Br",
             image: imageData
         });
     };
