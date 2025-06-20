@@ -44,41 +44,34 @@ def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
         session['historico_chat'] = historico_inicial
 
+    chat = modelo.start_chat(history=session['historico_chat'])
+
     mensagem_usuario = dados.get('mensagem', '')
     dados_arquivo = dados.get('arquivo')
 
     try:
-        if dados_arquivo and 'image' in dados_arquivo:
-            print("Processando como imagem...")
+        prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
+
+        if dados_arquivo:
+            print('Arquivo recebido!')
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
-            imagem = Image.open(io.BytesIO(dados_binarios))
-            
-            prompt_completo_usuario = [mensagem_usuario, imagem]
-            
-            resposta = modelo.generate_content(session['historico_chat'] + prompt_completo_usuario)
-            
-            session['historico_chat'].append({'role': 'user', 'parts': [mensagem_usuario, imagem]})
-            session['historico_chat'].append({'role': 'model', 'parts': [resposta.text]})
-            
-        else:
-            chat = modelo.start_chat(history=session['historico_chat'])
-            prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
 
-            if dados_arquivo and 'pdf' in dados_arquivo:
+            if 'image' in cabecalho:
+                print("Processando como imagem...")
+                imagem = Image.open(io.BytesIO(dados_binarios))
+                prompt_para_gemini.append(imagem)
+            
+            elif 'pdf' in cabecalho:
                 print("Processando como PDF...")
-                cabecalho, codificado = dados_arquivo.split(",", 1)
-                dados_binarios = base64.b64decode(codificado)
                 texto_pdf = ""
                 with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
                     for pagina in doc:
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
-            
-            resposta = chat.send_message(prompt_para_gemini)
-            
-            session['historico_chat'] = chat.history
-            
+        
+        resposta = chat.send_message(prompt_para_gemini)
+        session['historico_chat'] = chat.history
         emit('resposta_servidor', {'resposta': resposta.text})       
                 
     except Exception as e:
