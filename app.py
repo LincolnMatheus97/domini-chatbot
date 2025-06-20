@@ -15,7 +15,7 @@ genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 # --- Cria a Aplicação Flask e SocketIO ---
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "j8rQWR3C$!r$WFPWEgRxqz")
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # --- Configuração do Modelo Gemini ---
 modelo = genai.GenerativeModel("gemini-1.5-flash-latest")
