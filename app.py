@@ -1,7 +1,7 @@
 import os
 import google.generativeai as genai
 from dotenv import load_dotenv
-from flask import Flask, render_template
+from flask import Flask, render_template, session
 from flask_socketio import SocketIO, emit
 import base64
 import io
@@ -14,27 +14,44 @@ genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
 # --- Cria a Aplicação Flask e SocketIO ---
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.secret_key = os.getenv("SECRET_KEY", "j8rQWR3C$!r$WFPWEgRxqz")
+socketio = SocketIO(app)
 
 # --- Configuração do Modelo Gemini ---
 modelo = genai.GenerativeModel("gemini-1.5-flash-latest")
-chat_texto = modelo.start_chat(history=[])
+historico_inicial = [
+    {
+        'role': 'user',
+        'parts': ['Olá. A partir de agora, seu nome é L²NT, um assistente de IA criado por Lincoln Matheus para seu portfólio. Seja sempre amigável, prestativo e responda em português do Brasil.']
+    },
+    {
+        'role': 'model',
+        'parts': ['Entendido! Meu nome é L²NT e estou pronto para ajudar. Como posso ser útil hoje?']
+    }
+]
 
 # --- Funções do Socket.IO ---
 
 @socketio.on('conectar')
 def lidar_conexao():
-    print('Cliente conectado com sucesso!')
+    session['historico_chat'] = historico_inicial
+    primeira_mensagem_bot = historico_inicial[1]['parts'][0]
+    emit('mensagem_inicial', {'resposta': primeira_mensagem_bot})
+    print('Cliente conectado com sucesso! Historico de chat iniciado.')
 
 @socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
+    if 'historico_chat' not in session:
+        session['historico_chat'] = historico_inicial
+    
+    chat = modelo.start_chat(history=session['historico_chat'])
+
     mensagem_usuario = dados.get('mensagem', '')
     dados_arquivo = dados.get('arquivo')
 
-    conteudo_para_gemini = [mensagem_usuario]
-    resposta_final = ""
-
     try:
+        prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
+
         if dados_arquivo:
             print('Arquivo recebido!')
             cabecalho, codificado = dados_arquivo.split(",", 1)
@@ -43,11 +60,7 @@ def lidar_mensagem_usuario(dados):
             if 'image' in cabecalho:
                 print("Processando como imagem...")
                 imagem = Image.open(io.BytesIO(dados_binarios))
-                conteudo_para_gemini.append(imagem)
-                # Para multimodal, usamos model.generate_content
-                response = modelo.generate_content(conteudo_para_gemini)
-                resposta_final = response.text
-
+                prompt_para_gemini.append(imagem)
             elif 'pdf' in cabecalho:
                 print("Processando como PDF...")
                 texto_pdf = ""
@@ -58,21 +71,13 @@ def lidar_mensagem_usuario(dados):
                 print(f"Texto extraído do PDF: {texto_pdf[:100]}...") # Log dos primeiros 100 caracteres
                 
                 # Adiciona o texto extraído ao prompt
-                conteudo_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
-                
-                # Envia como uma única string de texto para o chat
-                prompt_completo = "\n".join(map(str, conteudo_para_gemini))
-                response = chat_texto.send_message(prompt_completo)
-                resposta_final = response.text
-        else:
-            # Se não houver arquivo, funciona como chat de texto contínuo
-            print(f'Mensagem de texto recebida: "{mensagem_usuario}"')
-            response = chat_texto.send_message(mensagem_usuario)
-            resposta_final = response.text
-        
-        # Emite a resposta de volta para o frontend
-        emit('resposta_servidor', {'resposta': resposta_final})
+                prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
+        resposta = chat.send_menssage(prompt_para_gemini)
+
+        session['historico_chat'] = chat.history
+        emit('resposta_servidor', {'resposta': resposta.text})        
+                
     except Exception as e:
         print(f'Erro: {str(e)}')
         emit('resposta_servidor', {'resposta': f'Ocorreu um erro: {str(e)}'})
