@@ -73,7 +73,7 @@ def lidar_mensagem_usuario(dados):
                 # Adiciona o texto extraído ao prompt
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
-        resposta = chat.send_menssage(prompt_para_gemini)
+        resposta = chat.send_message(prompt_para_gemini)
 
         session['historico_chat'] = chat.history
         emit('resposta_servidor', {'resposta': resposta.text})        
