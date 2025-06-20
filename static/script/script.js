@@ -129,8 +129,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 imgEl.src = anexo.dados;
                 elementoMensagem.appendChild(imgEl);
             } else if (anexo.tipo.includes('pdf')) {
+                const cabecalho = anexo.dados.string(',')[0];
+                const dadosPuros = atob(anexo.dados.split(',')[1]);
+                const tipoMime = cabecalho.match(/:(.*?)/)[1];
+                const arrayBytes = new Uint8Array(dadosPuros.length);
+                for (let i = 0; i < dadosPuros.length; i++){
+                    arrayBytes[i] = dadosPuros.charCodeAt(i);
+                }
+                const pdfBlob = new Blob([arrayBytes], {type: tipoMime});
+                const urlPdf = URL.createObjectURL(pdfBlob);
                 const linkPdf = document.createElement('a');
-                linkPdf.href = anexo.dados;
+                linkPdf.href = urlPdf;
                 linkPdf.target = '_blank';
                 linkPdf.rel = 'noopener noreferrer';
                 linkPdf.classList.add('link-pdf');
