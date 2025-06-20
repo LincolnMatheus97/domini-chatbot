@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (anexo.tipo.includes('pdf')) {
                 const cabecalho = anexo.dados.split(',')[0];
                 const dadosPuros = atob(anexo.dados.split(',')[1]);
-                const tipoMime = cabecalho.match(/:(.*?)/)[1];
+                const tipoMime = cabecalho.match(/:(.*?);/)[1];
                 const arrayBytes = new Uint8Array(dadosPuros.length);
                 for (let i = 0; i < dadosPuros.length; i++){
                     arrayBytes[i] = dadosPuros.charCodeAt(i);
