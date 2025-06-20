@@ -63,8 +63,6 @@ footer {
     gap: 10px; 
 }
 
-/* IDs e Classes Traduzidos */
-
 #chat_container {
     width: 100%;
     max-width: 700px;
@@ -175,12 +173,10 @@ footer {
     height: 35px; 
 }
 
-/* Esconde elementos */
 .hidden {
     display: none !important;
 }
 
-/* Área principal do input para posicionar o menu */
 #area_input {
     position: relative; 
     display: flex;
@@ -188,7 +184,6 @@ footer {
     align-items: center;
 }
 
-/* Estilo do Menu de Anexo */
 #menu_anexo {
     position: absolute;
     bottom: 50px;
@@ -219,7 +214,6 @@ footer {
     background-color: #5a5a5a;
 }
 
-/* Estilo do Container de Preview */
 #preview_anexo {
     padding: 10px;
     margin: 0 15px 10px 15px;
