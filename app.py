@@ -36,47 +36,50 @@ historico_inicial = [
 def lidar_conexao():
     session['historico_chat'] = historico_inicial
     primeira_mensagem_bot = historico_inicial[1]['parts'][0]
-    emit('mensagem_inicial', {'resposta': primeira_mensagem_bot})
+    emit('resposta_servidor', {'resposta': primeira_mensagem_bot})
     print('Cliente conectado com sucesso! Historico de chat iniciado.')
 
 @socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
         session['historico_chat'] = historico_inicial
-    
-    chat = modelo.start_chat(history=session['historico_chat'])
 
     mensagem_usuario = dados.get('mensagem', '')
     dados_arquivo = dados.get('arquivo')
 
     try:
-        prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
-
-        if dados_arquivo:
-            print('Arquivo recebido!')
+        if dados_arquivo and 'image' in dados_arquivo:
+            print("Processando como imagem...")
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
+            imagem = Image.open(io.BytesIO(dados_binarios))
+            
+            prompt_completo_usuario = [mensagem_usuario, imagem]
+            
+            resposta = modelo.generate_content(session['historico_chat'] + prompt_completo_usuario)
+            
+            session['historico_chat'].append({'role': 'user', 'parts': [mensagem_usuario, imagem]})
+            session['historico_chat'].append({'role': 'model', 'parts': [resposta.text]})
+            
+        else:
+            chat = modelo.start_chat(history=session['historico_chat'])
+            prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
 
-            if 'image' in cabecalho:
-                print("Processando como imagem...")
-                imagem = Image.open(io.BytesIO(dados_binarios))
-                prompt_para_gemini.append(imagem)
-            elif 'pdf' in cabecalho:
+            if dados_arquivo and 'pdf' in dados_arquivo:
                 print("Processando como PDF...")
+                cabecalho, codificado = dados_arquivo.split(",", 1)
+                dados_binarios = base64.b64decode(codificado)
                 texto_pdf = ""
                 with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
                     for pagina in doc:
                         texto_pdf += pagina.get_text()
-                
-                print(f"Texto extraído do PDF: {texto_pdf[:100]}...") # Log dos primeiros 100 caracteres
-                
-                # Adiciona o texto extraído ao prompt
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
-
-        resposta = chat.send_message(prompt_para_gemini)
-
-        session['historico_chat'] = chat.history
-        emit('resposta_servidor', {'resposta': resposta.text})        
+            
+            resposta = chat.send_message(prompt_para_gemini)
+            
+            session['historico_chat'] = chat.history
+            
+        emit('resposta_servidor', {'resposta': resposta.text})       
                 
     except Exception as e:
         print(f'Erro: {str(e)}')
