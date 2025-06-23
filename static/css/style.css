@@ -171,8 +171,17 @@ footer {
 }
 
 #imagem-git {
+    z-index: 0;
     width: 35px; 
     height: 35px; 
+}
+
+#imagem-git::after {
+    content: "";
+    display: block;
+    width: 100px;
+    height: 100px;
+    z-index: 1;
 }
 
 .hidden {
