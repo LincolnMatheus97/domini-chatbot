@@ -11,8 +11,8 @@ html, body {
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #1c1c1c;
-    color: #e0e0e0;
+    background-color: #5e5d5d;
+    color: white;
     display:flex;
     flex-direction: column;
     min-height: 100vh;
@@ -20,8 +20,8 @@ body {
 
 header {
     min-height: 60px;
-    background-color: #2d2d2d;
-    color: white;
+    background-color: rgba(212, 212, 212, 0.822);
+    color: #252525;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -51,8 +51,8 @@ main {
 
 footer {
     min-height: 60px;
-    background-color: #2d2d2d;
-    color:white;
+    background-color: rgba(212, 212, 212, 0.822);
+    color: #252525;
     display: flex;
     align-items: center;
     justify-content: space-around; 
@@ -70,7 +70,7 @@ footer {
     max-width: 700px;
     height: 100%; 
     max-height: 95%;
-    background-color: #2d2d2d;
+    background-color: rgba(212, 212, 212, 0.822);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     display: flex;
@@ -107,6 +107,16 @@ footer {
     color: #e0e0e0;
     align-self: flex-start;
     border-bottom-left-radius: 4px;
+}
+
+.mensagem_bot.pensando .cursor-piscando {
+    display: inline-block;
+    width: 10px;
+    height: 1.2em;
+    background-color: #e0e0e0;
+    margin-left: 5px;
+    animation: piscar 1s infinite;
+    vertical-align: text-bottom;
 }
 
 .mensagem_bot img,
@@ -252,6 +262,35 @@ footer {
     font-weight: bold;
     line-height: 20px;
     text-align: center;
+}
+
+.link-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #e0e0e0;
+    text-decoration: none;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.link-pdf:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.link-pdf svg {
+    fill: #e0e0e0;
+    flex-shrink: 0; 
+}
+
+@keyframes piscar {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0;
+    }
 }
 
 /* Media Query para Tablets (orientação retrato e celulares maiores) */
