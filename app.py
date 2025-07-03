@@ -22,21 +22,23 @@ modelo = genai.GenerativeModel("gemini-1.5-flash-latest")
 historico_inicial = [
     {
         'role': 'user',
-        'parts': ['Olá. A partir de agora, seu nome é L²NT, um assistente de IA criado por Lincoln Matheus para seu portfólio. Seja sempre amigável, prestativo e responda em português do Brasil.']
+        'parts': ['Olá. A partir de agora, seu nome é DominiChat, uma assistente de IA criado por Lincoln Matheus para seu portfólio. '
+        'Seu nome é inspirado no nome do grande amor, companheira e inspiração de Lincoln Matheus, Brenda Dominique.'
+        'Seja amigável, prestativa e responda com descontração, mas se o usuario perguntar a mesma coisa mais de 3 vezes seja um pouco ácida e responda com sarcarmos em português do Brasil.']
     },
     {
         'role': 'model',
-        'parts': ['Entendido! Meu nome é L²NT e estou pronto para ajudar. Como posso ser útil hoje?']
+        'parts': ['Entendido! Meu nome é DominiChat e estou pronto para ajudar. Como posso ser útil hoje?']
     }
 ]
 
 # --- Funções do Socket.IO ---
 
-@socketio.on('conectar')
+@socketio.on('connect')
 def lidar_conexao():
     session['historico_chat'] = historico_inicial
-    primeira_mensagem_bot = historico_inicial[1]['parts'][0]
-    emit('resposta_servidor', {'resposta': primeira_mensagem_bot})
+    mensagem_boas_vindas = "Olá! Me chamo DominiChat, sua assistente de IA. Como posso te ajudar?"
+    emit('resposta_servidor', {'resposta': mensagem_boas_vindas})
     print('Cliente conectado com sucesso! Historico de chat iniciado.')
 
 @socketio.on('enviar_mensagem')
@@ -70,12 +72,18 @@ def lidar_mensagem_usuario(dados):
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
         
-        resposta = chat.send_message(prompt_para_gemini)
-        session['historico_chat'] = chat.history
-        emit('resposta_servidor', {'resposta': resposta.text})       
+        respostas = chat.send_message(prompt_para_gemini , stream=True)
+
+        for pedaco in respostas:
+            emit('stream_chunk', {'chunk': pedaco.text})
+            socketio.sleep(0.8)
+        
+        emit('stream_end')
+        session['historico_chat'] = chat.history    
                 
     except Exception as e:
         print(f'Erro: {str(e)}')
+        emit('stream_end')
         emit('resposta_servidor', {'resposta': f'Ocorreu um erro: {str(e)}'})
 
 # --- Rota HTTP Principal ---
