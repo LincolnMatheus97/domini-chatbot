@@ -74,8 +74,8 @@ def lidar_mensagem_usuario(dados):
         
         respostas = chat.send_message(prompt_para_gemini)
 
-        for pedaco in respostas:
-            emit('stream_chunk', {'chunk': pedaco.text})
+        for caractere in respostas:
+            emit('stream_chunk', {'chunk': caractere})
             socketio.sleep(0.02)
         
         emit('stream_end')
