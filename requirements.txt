@@ -6,4 +6,3 @@ flask-socketio
 gunicorn
 eventlet
 PyMuPDF
-requests
