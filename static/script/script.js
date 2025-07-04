@@ -23,6 +23,9 @@ const inputArquivo = getById('input_arquivo');
 const previewAnexo = getById('preview_anexo');
 const previewImagem = getById('preview_imagem');
 const previewPdfNome = getById('preview_pdf_nome');
+const botaoTema = getById('botao_tema');
+const iconeSol = getById('icone_sol');
+const iconeLua = getById('icone_lua');
 
 let anexoTemporario = null;
 
@@ -32,6 +35,7 @@ capturarClick('botao_abrir_menu', lidarCliqueMenu);
 capturarClick('anexar_imagem_btn', lidarCliqueAnexarImagem);
 capturarClick('anexar_pdf_btn', lidarCliqueAnexarPdf);
 capturarClick('remover_anexo_btn', lidarCliqueRemoverAnexo);
+capturarClick('botao_tema', lidarCliqueTema);
 enviarArquivo('input_arquivo', lidarSelecaoDeArquivo);
 enviarFormulario('formulario_mensagem', lidarEnvioDoFormulario);
 
@@ -170,6 +174,29 @@ function criarPlaceholderRespostaBot() {
 
     caixaChat.appendChild(placeholder);
     caixaChat.scrollTop = caixaChat.scrollHeight;
+}
+
+const temaSalvo = localStorage.getItem('theme');
+if (temaSalvo) {
+    document.body.classList.add(temaSalvo);
+    if (temaSalvo === 'dark-mode') {
+        iconeSol.classList.add('hidden');
+        iconeLua.classList.remove('hidden');
+    }
+}
+
+function lidarCliqueTema() {
+    document.body.classList.toggle('dark-mode');
+
+    if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('theme', 'dark-mode');
+        iconeSol.classList.add('hidden');
+        iconeLua.classList.remove('hidden');
+    } else {
+        localStorage.removeItem('theme');
+        iconeSol.classList.remove('hidden');
+        iconeLua.classList.add('hidden');
+    }
 }
 
 let primeiraVezStream = true;
