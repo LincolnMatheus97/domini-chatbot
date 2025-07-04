@@ -169,6 +169,10 @@ main {
     margin: 10px;
 }
 
+#input_mensagem::placeholder{
+    padding-left:  5px;
+}
+
 .botao_icone {
     background: var(--cor-elemento-principal);
     border: none;
