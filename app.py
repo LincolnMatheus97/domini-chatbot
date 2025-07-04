@@ -72,11 +72,11 @@ def lidar_mensagem_usuario(dados):
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
         
-        respostas = chat.send_message(prompt_para_gemini , stream=True)
+        respostas = chat.send_message(prompt_para_gemini)
 
         for pedaco in respostas:
             emit('stream_chunk', {'chunk': pedaco.text})
-            socketio.sleep(0.8)
+            socketio.sleep(0.02)
         
         emit('stream_end')
         session['historico_chat'] = chat.history    
