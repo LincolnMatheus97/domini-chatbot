@@ -10,14 +10,20 @@ import fitz
 import requests
 import urllib.parse
 import datetime
+import locale
 
 # --- 1. DEFINIÇÃO DAS FERRAMENTAS ---
-# (Esta parte continua igual)
+
 def obter_data_hora_atual():
     """Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."""
     print("--- Ferramenta: obtendo data e hora atual ---")
     try:
-        fuso_horario = datetime.timezone(datetime.timedelta(hours=-3)) # Fuso de Brasília (UTC-3)
+        try:
+            locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+        except locale.Error:
+            locale.setlocale(locale.LC_TIME, '')
+            
+        fuso_horario = datetime.timezone(datetime.timedelta(hours=-3))
         agora = datetime.datetime.now(fuso_horario)
         return agora.strftime("São %H horas e %M minutos de %A, %d de %B de %Y.")
     except Exception as e:
@@ -54,7 +60,6 @@ def obter_previsao_tempo(local: str):
         return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
 
 # --- Configuração Inicial e do Modelo ---
-# (Esta parte continua igual)
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
@@ -114,24 +119,20 @@ def lidar_mensagem_usuario(dados):
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
-        # 1. Envia a primeira mensagem para o modelo
         primeira_resposta = chat.send_message(prompt_para_gemini)
 
-        # 2. Verifica se a resposta é uma chamada de função
         try:
             chamada_de_funcao = primeira_resposta.candidates[0].content.parts[0].function_call
             if not chamada_de_funcao.name: raise AttributeError("Chamada sem nome")
         except (AttributeError, IndexError):
-            # Se não for uma chamada de função, é uma resposta de texto direta.
             if primeira_resposta.text:
                 for caractere in primeira_resposta.text:
                     emit('stream_chunk', {'chunk': caractere})
                     socketio.sleep(0.02)
                 emit('stream_end')
                 session['historico_chat'] = chat.history
-            return # Termina a execução aqui
+            return
 
-        # 3. Se chegamos aqui, é uma chamada de função. Vamos executá-la.
         nome_da_funcao = chamada_de_funcao.name
         argumentos = dict(chamada_de_funcao.args)
         
@@ -140,7 +141,6 @@ def lidar_mensagem_usuario(dados):
             funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
             resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
             
-            # 4. Envia o resultado da ferramenta de volta para o modelo
             resposta_final = chat.send_message(
                 genai.protos.Part(function_response=genai.protos.FunctionResponse(
                     name=nome_da_funcao,
@@ -148,7 +148,6 @@ def lidar_mensagem_usuario(dados):
                 ))
             )
             
-            # 5. Assume que a resposta final é texto e a envia ao usuário
             if resposta_final.text:
                 for caractere in resposta_final.text:
                     emit('stream_chunk', {'chunk': caractere})
