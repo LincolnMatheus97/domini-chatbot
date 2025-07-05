@@ -161,8 +161,15 @@ def lidar_mensagem_usuario(dados):
 
         resposta = chat.send_message(prompt_para_gemini)
 
-        while resposta.candidates[0].content.parts and resposta.candidates[0].content.parts[0].function_call.name:
-            chamada_de_funcao = resposta.candidates[0].content.parts[0].function_call
+        while True:
+            try:
+                chamada_de_funcao = resposta.candidates[0].content.parts[0].function_call
+                if not chamada_de_funcao.name:
+                    break
+            except (AttributeError, IndexError):
+                break
+
+            # Se chegamos aqui, existe uma chamada de função para executar
             nome_da_funcao = chamada_de_funcao.name
             argumentos = dict(chamada_de_funcao.args)
 
@@ -170,19 +177,21 @@ def lidar_mensagem_usuario(dados):
                 print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
                 funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
                 resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
-
+                
                 function_response_part = genai.protos.Part(
                     function_response=genai.protos.FunctionResponse(
                         name=nome_da_funcao,
                         response={'result': resultado_da_ferramenta}
                     )
                 )
-            
+                
+                # Envia o resultado e obtém a próxima resposta para o loop continuar
                 resposta = chat.send_message(function_response_part)
             else:
                 print(f"Função '{nome_da_funcao}' não encontrada.")
-                break
+                break # Pare se a função não for conhecida
 
+        # Após o loop, 'resposta' conterá a resposta final em texto
         if resposta.text:
             for caractere in resposta.text:
                 emit('stream_chunk', {'chunk': caractere})
