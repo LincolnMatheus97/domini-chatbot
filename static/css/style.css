@@ -15,9 +15,9 @@
 body.dark-mode {
     --cor-fundo: #5c5c5c;
     --cor-texto-principal: #e0e0e0;
-    --cor-elemento-principal: #3e3e3e; /* Mantém a base para o efeito */
-    --cor-sombra-escura: #2a2a2a; /* Sombra mais escura */
-    --cor-sombra-clara: #525252; /* Sombra clara mais brilhante */
+    --cor-elemento-principal: #3e3e3e;
+    --cor-sombra-escura: #2a2a2a;
+    --cor-sombra-clara: #525252;
     --cor-input-fundo: #3e3e3e;
     --cor-input-sombra-escura: #323232;
     --cor-input-sombra-clara: #4a4a4a;
@@ -159,7 +159,7 @@ main {
     flex-grow: 1;
     background-color: var(--cor-input-fundo);
     border: none;
-    padding: 14px 10px;
+    padding: 14px 18px;
     border-radius: 30px;
     color: var(--cor-texto-principal);
     font-size: 16px;
@@ -167,10 +167,6 @@ main {
     box-shadow: inset 6px 6px 12px var(--cor-input-sombra-escura),
                 inset -6px -6px 12px var(--cor-input-sombra-clara);
     margin: 10px;
-}
-
-#input_mensagem::placeholder{
-    padding-left:  5px;
 }
 
 .botao_icone {
@@ -381,9 +377,6 @@ footer #imagem-git {
     header h1 { 
         font-size: 1.4rem; 
     }
-    #input_mensagem ::placeholder {
-        padding: 5px;
-    }
     footer { 
         flex-direction: column; padding: 15px; 
     }
@@ -402,11 +395,8 @@ footer #imagem-git {
     header h1 { 
         font-size: 1.3rem; 
     }
-    main ,#input_mensagem{ 
+    main { 
         padding: 14px 0px;
-    }
-    #input_mensagem ::placeholder {
-        padding: 5px;
     }
     footer { 
         font-size: 0.85rem; padding: 10px; min-height: auto; 
