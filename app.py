@@ -12,7 +12,7 @@ import urllib.parse
 import datetime
 
 # --- 1. DEFINIÇÃO DAS FERRAMENTAS ---
-
+# (Esta parte continua igual)
 def obter_data_hora_atual():
     """Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."""
     print("--- Ferramenta: obtendo data e hora atual ---")
@@ -27,47 +27,34 @@ def obter_data_hora_atual():
 def obter_previsao_tempo(local: str):
     """
     Obtém a previsão do tempo para um local específico usando a API Open-Meteo.
-    :param local: O nome da cidade (ex: "Teresina", "São Paulo").
-    :return: Uma string com a previsão do tempo ou uma mensagem de erro.
     """
     print(f"--- Ferramenta: buscando clima para: {local} ---")
     try:
-        # Primeiro, obtemos as coordenadas da cidade
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local)}&count=1&language=pt&format=json"
         geo_response = requests.get(geo_url, timeout=10)
         geo_response.raise_for_status()
-
         if not geo_response.json().get('results'):
             return f"Não consegui encontrar a cidade '{local}'."
-
         location = geo_response.json()['results'][0]
         latitude = location['latitude']
         longitude = location['longitude']
         nome_cidade = location['name']
-
-        # Agora, obtemos a previsão do tempo
         weather_url = (f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
-                       f"&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min"
-                       f"&timezone=auto&forecast_days=1")
+                       f"&current=temperature_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1")
         weather_response = requests.get(weather_url, timeout=10)
         weather_response.raise_for_status()
-
         data = weather_response.json()
         temp_atual = data['current']['temperature_2m']
         temp_max = data['daily']['temperature_2m_max'][0]
         temp_min = data['daily']['temperature_2m_min'][0]
         return (f"A temperatura atual em {nome_cidade} é de {temp_atual}°C, com máxima de "
                 f"{temp_max}°C e mínima de {temp_min}°C.")
-
-    except requests.exceptions.RequestException as e:
-        print(f"Erro de conexão ao buscar previsão do tempo: {e}")
-        return "Não foi possível obter a previsão do tempo no momento devido a um erro de rede."
     except Exception as e:
         print(f"Erro inesperado em obter_previsao_tempo: {e}")
         return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
 
-
 # --- Configuração Inicial e do Modelo ---
+# (Esta parte continua igual)
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
@@ -82,47 +69,17 @@ ferramentas_disponiveis = {
 
 ferramentas_para_modelo = genai.protos.Tool(
     function_declarations=[
-        genai.protos.FunctionDeclaration(
-            name='obter_data_hora_atual',
-            description="Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."
-        ),
-        genai.protos.FunctionDeclaration(
-            name='obter_previsao_tempo',
-            description="Obtém a previsão do tempo para uma cidade específica.",
-            parameters=genai.protos.Schema(
-                type=genai.protos.Type.OBJECT,
-                properties={
-                    'local': genai.protos.Schema(type=genai.protos.Type.STRING, description="A cidade para buscar a previsão do tempo (ex: 'Teresina, PI')")
-                },
-                required=['local']
-            )
-        )
-    ]
-)
+        genai.protos.FunctionDeclaration(name='obter_data_hora_atual', description="Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."),
+        genai.protos.FunctionDeclaration(name='obter_previsao_tempo', description="Obtém a previsão do tempo para uma cidade específica.",
+            parameters=genai.protos.Schema(type=genai.protos.Type.OBJECT,
+                properties={'local': genai.protos.Schema(type=genai.protos.Type.STRING, description="A cidade para buscar a previsão do tempo (ex: 'Teresina, PI')")},
+                required=['local']))])
 
-modelo = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest",
-    tools=[ferramentas_para_modelo]
-)
+modelo = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", tools=[ferramentas_para_modelo])
 
-# Persona (usando a sua versão mais recente)
 historico_inicial = [
-    {
-        'role': 'user',
-        'parts': ["""
-            Você é a DomiChat, uma assistente de IA multifuncional.
-            A partir de agora, seu nome é DominiChat, uma assistente de IA criado por Lincoln Matheus para seu portfólio.
-            Seu nome é inspirado no nome do grande amor, companheira e inspiração de Lincoln Matheus, Brenda Dominique.
-            Suas habilidades são:
-            1. Análise de Imagens e PDFs.
-            2. Buscar informações em tempo real, como data, hora e previsão do tempo, usando as ferramentas disponíveis. Ao responder, sempre formule uma frase completa e amigável.
-            3. Assistente Geral: Seja amigável, prestativa e responda com descontração, mas se o usuario perguntar a mesma coisa mais de 3 vezes seja um pouco ácida e responda com sarcarmos em português do Brasil.
-        """]
-    },
-    {
-        'role': 'model',
-        'parts': ['Entendido! Sou a DominiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']
-    }
+    {'role': 'user', 'parts': ["Você é a DominiChat, uma assistente de IA multifuncional criada por Lincoln Matheus, inspirada em seu grande amor, Brenda Dominique. Suas habilidades são: 1. Análise de Imagens e PDFs. 2. Buscar informações como data, hora e previsão do tempo. 3. Ser amigável e prestativa, mas com um toque de sarcasmo se o usuário repetir a mesma pergunta mais de 3 vezes."]},
+    {'role': 'model', 'parts': ['Entendido! Sou a DominiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']}
 ]
 
 # --- Funções do Socket.IO ---
@@ -145,13 +102,11 @@ def lidar_mensagem_usuario(dados):
 
     try:
         prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
-
         if dados_arquivo:
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
             if 'image' in cabecalho:
-                imagem = Image.open(io.BytesIO(dados_binarios))
-                prompt_para_gemini.append(imagem)
+                prompt_para_gemini.append(Image.open(io.BytesIO(dados_binarios)))
             elif 'pdf' in cabecalho:
                 texto_pdf = ""
                 with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
@@ -159,46 +114,48 @@ def lidar_mensagem_usuario(dados):
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
-        resposta = chat.send_message(prompt_para_gemini)
+        # 1. Envia a primeira mensagem para o modelo
+        primeira_resposta = chat.send_message(prompt_para_gemini)
 
-        # *** LÓGICA DE LOOP CORRIGIDA E FINAL ***
-        while True:
-            try:
-                # Tenta acessar a chamada de função. Se falhar, vai para o 'except'.
-                chamada_de_funcao = resposta.candidates[0].content.parts[0].function_call
-                if not chamada_de_funcao.name:
-                    # Se não tiver nome, é inválida, então consideramos como texto.
-                    raise AttributeError("Chamada de função sem nome")
-            except (AttributeError, IndexError):
-                # Se entramos aqui, a resposta é TEXTO.
-                # Nós a enviamos para o usuário e paramos o loop.
-                if resposta.text:
-                    for caractere in resposta.text:
-                        emit('stream_chunk', {'chunk': caractere})
-                        socketio.sleep(0.02)
-                break # Fim do ciclo
+        # 2. Verifica se a resposta é uma chamada de função
+        try:
+            chamada_de_funcao = primeira_resposta.candidates[0].content.parts[0].function_call
+            if not chamada_de_funcao.name: raise AttributeError("Chamada sem nome")
+        except (AttributeError, IndexError):
+            # Se não for uma chamada de função, é uma resposta de texto direta.
+            if primeira_resposta.text:
+                for caractere in primeira_resposta.text:
+                    emit('stream_chunk', {'chunk': caractere})
+                    socketio.sleep(0.02)
+                emit('stream_end')
+                session['historico_chat'] = chat.history
+            return # Termina a execução aqui
 
-            # Se chegamos aqui, a resposta é uma CHAMADA DE FUNÇÃO.
-            nome_da_funcao = chamada_de_funcao.name
-            argumentos = dict(chamada_de_funcao.args)
-
-            if nome_da_funcao in ferramentas_disponiveis:
-                print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
-                funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
-                resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
-                
-                function_response_part = genai.protos.Part(
-                    function_response=genai.protos.FunctionResponse(
-                        name=nome_da_funcao,
-                        response={'result': resultado_da_ferramenta}
-                    )
-                )
-                
-                # Envia o resultado da função e continua o loop com a nova resposta do modelo.
-                resposta = chat.send_message(function_response_part)
-            else:
-                print(f"Função '{nome_da_funcao}' não encontrada.")
-                break
+        # 3. Se chegamos aqui, é uma chamada de função. Vamos executá-la.
+        nome_da_funcao = chamada_de_funcao.name
+        argumentos = dict(chamada_de_funcao.args)
+        
+        if nome_da_funcao in ferramentas_disponiveis:
+            print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
+            funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
+            resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
+            
+            # 4. Envia o resultado da ferramenta de volta para o modelo
+            resposta_final = chat.send_message(
+                genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                    name=nome_da_funcao,
+                    response={'result': resultado_da_ferramenta}
+                ))
+            )
+            
+            # 5. Assume que a resposta final é texto e a envia ao usuário
+            if resposta_final.text:
+                for caractere in resposta_final.text:
+                    emit('stream_chunk', {'chunk': caractere})
+                    socketio.sleep(0.02)
+        else:
+            print(f"Função '{nome_da_funcao}' não encontrada.")
+            emit('resposta_servidor', {'resposta': "Desculpe, tentei usar uma ferramenta que não conheço."})
 
         emit('stream_end')
         session['historico_chat'] = chat.history
@@ -215,5 +172,4 @@ def pagina_inicial():
 
 if __name__ == '__main__':
     porta = int(os.getenv("PORT", 8080))
-    # Corrigindo a vírgula extra no final
     socketio.run(app, host='0.0.0.0', port=porta, debug=False)
