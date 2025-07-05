@@ -35,7 +35,7 @@ def obter_previsao_tempo(local: str):
         # Primeiro, obtemos as coordenadas da cidade
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local)}&count=1&language=pt&format=json"
         geo_response = requests.get(geo_url, timeout=10)
-        geo_response.raise_for_status() # Lança um erro para status ruins (4xx ou 5xx)
+        geo_response.raise_for_status()
 
         if not geo_response.json().get('results'):
             return f"Não consegui encontrar a cidade '{local}'."
@@ -45,7 +45,7 @@ def obter_previsao_tempo(local: str):
         longitude = location['longitude']
         nome_cidade = location['name']
 
-        # Agora, obtemos a previsão do tempo para essas coordenadas
+        # Agora, obtemos a previsão do tempo
         weather_url = (f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
                        f"&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min"
                        f"&timezone=auto&forecast_days=1")
@@ -73,19 +73,39 @@ genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "j8rQWR3C$!r$WFPWEgRxqz")
-socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=10000000)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 ferramentas_disponiveis = {
     'obter_data_hora_atual': obter_data_hora_atual,
     'obter_previsao_tempo': obter_previsao_tempo,
 }
 
-modelo = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest",
-    tools=list(ferramentas_disponiveis.values())
+ferramentas_para_modelo = genai.protos.Tool(
+    function_declarations=[
+        genai.protos.FunctionDeclaration(
+            name='obter_data_hora_atual',
+            description="Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."
+        ),
+        genai.protos.FunctionDeclaration(
+            name='obter_previsao_tempo',
+            description="Obtém a previsão do tempo para uma cidade específica.",
+            parameters=genai.protos.Schema(
+                type=genai.protos.Type.OBJECT,
+                properties={
+                    'local': genai.protos.Schema(type=genai.protos.Type.STRING, description="A cidade para buscar a previsão do tempo (ex: 'Teresina, PI')")
+                },
+                required=['local']
+            )
+        )
+    ]
 )
 
-# Nova Persona com as novas habilidades
+modelo = genai.GenerativeModel(
+    model_name="gemini-1.5-flash-latest",
+    tools=[ferramentas_para_modelo]
+)
+
+# Persona
 historico_inicial = [
     {
         'role': 'user',
@@ -139,36 +159,30 @@ def lidar_mensagem_usuario(dados):
                         texto_pdf += pagina.get_text()
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
-        # Envia a mensagem inicial do usuário
         resposta = chat.send_message(prompt_para_gemini)
 
-        while True:
-            chamada_de_funcao = next((part.function_call for part in resposta.parts if part.function_call), None)
-            
-            if not chamada_de_funcao:
-                break
-
+        while resposta.candidates[0].content.parts and resposta.candidates[0].content.parts[0].function_call.name:
+            chamada_de_funcao = resposta.candidates[0].content.parts[0].function_call
             nome_da_funcao = chamada_de_funcao.name
             argumentos = dict(chamada_de_funcao.args)
-            
+
             if nome_da_funcao in ferramentas_disponiveis:
                 print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
                 funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
                 resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
-                
-                resposta = chat.send_message(
-                    genai.types.Part(
-                        function_response=genai.types.FunctionResponse(
-                            name=nome_da_funcao,
-                            response={'result': resultado_da_ferramenta},
-                        )
+
+                function_response_part = genai.protos.Part(
+                    function_response=genai.protos.FunctionResponse(
+                        name=nome_da_funcao,
+                        response={'result': resultado_da_ferramenta}
                     )
                 )
+            
+                resposta = chat.send_message(function_response_part)
             else:
                 print(f"Função '{nome_da_funcao}' não encontrada.")
                 break
 
-        # Envia a resposta final (texto) para o cliente
         if resposta.text:
             for caractere in resposta.text:
                 emit('stream_chunk', {'chunk': caractere})
