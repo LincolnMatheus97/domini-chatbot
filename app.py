@@ -105,7 +105,7 @@ modelo = genai.GenerativeModel(
     tools=[ferramentas_para_modelo]
 )
 
-# Persona
+# Persona (usando a sua versão mais recente)
 historico_inicial = [
     {
         'role': 'user',
@@ -121,7 +121,7 @@ historico_inicial = [
     },
     {
         'role': 'model',
-        'parts': ['Entendido! Sou a DomiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']
+        'parts': ['Entendido! Sou a DominiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']
     }
 ]
 
@@ -130,7 +130,7 @@ historico_inicial = [
 @socketio.on('connect')
 def lidar_conexao():
     session['historico_chat'] = historico_inicial
-    mensagem_boas_vindas = "Olá! Eu sou a DomiChat. Posso te dizer as horas, a previsão do tempo, analisar imagens e PDFs. O que você gostaria de fazer?"
+    mensagem_boas_vindas = "Olá! Eu sou a DominiChat. Posso te dizer as horas, a previsão do tempo, analisar imagens e PDFs. O que você gostaria de fazer?"
     emit('resposta_servidor', {'resposta': mensagem_boas_vindas})
     print('Cliente conectado! Persona com ferramentas de tempo/hora iniciada.')
 
@@ -161,15 +161,24 @@ def lidar_mensagem_usuario(dados):
 
         resposta = chat.send_message(prompt_para_gemini)
 
+        # *** LÓGICA DE LOOP CORRIGIDA E FINAL ***
         while True:
             try:
+                # Tenta acessar a chamada de função. Se falhar, vai para o 'except'.
                 chamada_de_funcao = resposta.candidates[0].content.parts[0].function_call
                 if not chamada_de_funcao.name:
-                    break
+                    # Se não tiver nome, é inválida, então consideramos como texto.
+                    raise AttributeError("Chamada de função sem nome")
             except (AttributeError, IndexError):
-                break
+                # Se entramos aqui, a resposta é TEXTO.
+                # Nós a enviamos para o usuário e paramos o loop.
+                if resposta.text:
+                    for caractere in resposta.text:
+                        emit('stream_chunk', {'chunk': caractere})
+                        socketio.sleep(0.02)
+                break # Fim do ciclo
 
-            # Se chegamos aqui, existe uma chamada de função para executar
+            # Se chegamos aqui, a resposta é uma CHAMADA DE FUNÇÃO.
             nome_da_funcao = chamada_de_funcao.name
             argumentos = dict(chamada_de_funcao.args)
 
@@ -185,18 +194,12 @@ def lidar_mensagem_usuario(dados):
                     )
                 )
                 
-                # Envia o resultado e obtém a próxima resposta para o loop continuar
+                # Envia o resultado da função e continua o loop com a nova resposta do modelo.
                 resposta = chat.send_message(function_response_part)
             else:
                 print(f"Função '{nome_da_funcao}' não encontrada.")
-                break # Pare se a função não for conhecida
+                break
 
-        # Após o loop, 'resposta' conterá a resposta final em texto
-        if resposta.text:
-            for caractere in resposta.text:
-                emit('stream_chunk', {'chunk': caractere})
-                socketio.sleep(0.02)
-        
         emit('stream_end')
         session['historico_chat'] = chat.history
 
@@ -212,4 +215,5 @@ def pagina_inicial():
 
 if __name__ == '__main__':
     porta = int(os.getenv("PORT", 8080))
+    # Corrigindo a vírgula extra no final
     socketio.run(app, host='0.0.0.0', port=porta, debug=False)
