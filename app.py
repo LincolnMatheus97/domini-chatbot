@@ -20,6 +20,7 @@ def obter_data_hora_atual():
         fuso_horario = datetime.timezone(datetime.timedelta(hours=-3))
         agora = datetime.datetime.now(fuso_horario)
 
+        # Mapas para tradução manual, garantindo que funcione em qualquer sistema
         dias_semana = {
             'Monday': 'segunda-feira', 'Tuesday': 'terça-feira', 'Wednesday': 'quarta-feira',
             'Thursday': 'quinta-feira', 'Friday': 'sexta-feira', 'Saturday': 'sábado', 'Sunday': 'domingo'
@@ -30,12 +31,15 @@ def obter_data_hora_atual():
             'September': 'setembro', 'October': 'outubro', 'November': 'novembro', 'December': 'dezembro'
         }
 
+        # Obtém os nomes em inglês para usar como chave
         dia_semana_en = agora.strftime('%A')
         mes_en = agora.strftime('%B')
 
+        # Busca a tradução nos nossos mapas
         dia_semana_pt = dias_semana.get(dia_semana_en, dia_semana_en)
         mes_pt = meses.get(mes_en, mes_en)
 
+        # Monta a string final com os valores traduzidos
         return (f"São {agora.hour} horas e {agora.minute} minutos de {dia_semana_pt}, "
                 f"{agora.day} de {mes_pt} de {agora.year}.")
 
@@ -44,9 +48,7 @@ def obter_data_hora_atual():
         return "Não consegui obter a data e hora."
 
 def obter_previsao_tempo(local: str):
-    """
-    Obtém a previsão do tempo para um local específico usando a API Open-Meteo.
-    """
+    """Obtém a previsão do tempo para um local específico usando a API Open-Meteo."""
     print(f"--- Ferramenta: buscando clima para: {local} ---")
     try:
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local)}&count=1&language=pt&format=json"
@@ -55,19 +57,15 @@ def obter_previsao_tempo(local: str):
         if not geo_response.json().get('results'):
             return f"Não consegui encontrar a cidade '{local}'."
         location = geo_response.json()['results'][0]
-        latitude = location['latitude']
-        longitude = location['longitude']
-        nome_cidade = location['name']
+        latitude, longitude, nome_cidade = location['latitude'], location['longitude'], location['name']
         weather_url = (f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
                        f"&current=temperature_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1")
         weather_response = requests.get(weather_url, timeout=10)
         weather_response.raise_for_status()
         data = weather_response.json()
         temp_atual = data['current']['temperature_2m']
-        temp_max = data['daily']['temperature_2m_max'][0]
-        temp_min = data['daily']['temperature_2m_min'][0]
-        return (f"A temperatura atual em {nome_cidade} é de {temp_atual}°C, com máxima de "
-                f"{temp_max}°C e mínima de {temp_min}°C.")
+        temp_max, temp_min = data['daily']['temperature_2m_max'][0], data['daily']['temperature_2m_min'][0]
+        return f"A temperatura atual em {nome_cidade} é de {temp_atual}°C, com máxima de {temp_max}°C e mínima de {temp_min}°C."
     except Exception as e:
         print(f"Erro inesperado em obter_previsao_tempo: {e}")
         return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
@@ -115,8 +113,7 @@ def lidar_mensagem_usuario(dados):
         session['historico_chat'] = historico_inicial
 
     chat = modelo.start_chat(history=session['historico_chat'])
-    mensagem_usuario = dados.get('mensagem', '')
-    dados_arquivo = dados.get('arquivo')
+    mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
         prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
@@ -126,10 +123,7 @@ def lidar_mensagem_usuario(dados):
             if 'image' in cabecalho:
                 prompt_para_gemini.append(Image.open(io.BytesIO(dados_binarios)))
             elif 'pdf' in cabecalho:
-                texto_pdf = ""
-                with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
-                    for pagina in doc:
-                        texto_pdf += pagina.get_text()
+                texto_pdf = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
 
         primeira_resposta = chat.send_message(prompt_para_gemini)
@@ -139,32 +133,22 @@ def lidar_mensagem_usuario(dados):
             if not chamada_de_funcao.name: raise AttributeError("Chamada sem nome")
         except (AttributeError, IndexError):
             if primeira_resposta.text:
-                for caractere in primeira_resposta.text:
-                    emit('stream_chunk', {'chunk': caractere})
-                    socketio.sleep(0.02)
+                for caractere in primeira_resposta.text: emit('stream_chunk', {'chunk': caractere}); socketio.sleep(0.02)
                 emit('stream_end')
                 session['historico_chat'] = chat.history
             return
 
-        nome_da_funcao = chamada_de_funcao.name
-        argumentos = dict(chamada_de_funcao.args)
+        nome_da_funcao, argumentos = chamada_de_funcao.name, dict(chamada_de_funcao.args)
         
         if nome_da_funcao in ferramentas_disponiveis:
             print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
-            funcao_a_ser_chamada = ferramentas_disponiveis[nome_da_funcao]
-            resultado_da_ferramenta = funcao_a_ser_chamada(**argumentos)
+            resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
             
-            resposta_final = chat.send_message(
-                genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                    name=nome_da_funcao,
-                    response={'result': resultado_da_ferramenta}
-                ))
-            )
+            resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
             
             if resposta_final.text:
-                for caractere in resposta_final.text:
-                    emit('stream_chunk', {'chunk': caractere})
-                    socketio.sleep(0.02)
+                for caractere in resposta_final.text: emit('stream_chunk', {'chunk': caractere}); socketio.sleep(0.02)
         else:
             print(f"Função '{nome_da_funcao}' não encontrada.")
             emit('resposta_servidor', {'resposta': "Desculpe, tentei usar uma ferramenta que não conheço."})
