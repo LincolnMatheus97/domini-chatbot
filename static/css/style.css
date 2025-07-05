@@ -381,6 +381,9 @@ footer #imagem-git {
     header h1 { 
         font-size: 1.4rem; 
     }
+    #input_mensagem ::placeholder {
+        padding: 5px;
+    }
     footer { 
         flex-direction: column; padding: 15px; 
     }
@@ -401,6 +404,9 @@ footer #imagem-git {
     }
     main ,#input_mensagem{ 
         padding: 14px 0px;
+    }
+    #input_mensagem ::placeholder {
+        padding: 5px;
     }
     footer { 
         font-size: 0.85rem; padding: 10px; min-height: auto; 
