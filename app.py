@@ -10,7 +10,6 @@ import fitz
 import requests
 import urllib.parse
 import datetime
-import locale
 
 # --- 1. DEFINIÇÃO DAS FERRAMENTAS ---
 
@@ -18,14 +17,28 @@ def obter_data_hora_atual():
     """Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."""
     print("--- Ferramenta: obtendo data e hora atual ---")
     try:
-        try:
-            locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-        except locale.Error:
-            locale.setlocale(locale.LC_TIME, '')
-            
         fuso_horario = datetime.timezone(datetime.timedelta(hours=-3))
         agora = datetime.datetime.now(fuso_horario)
-        return agora.strftime("São %H horas e %M minutos de %A, %d de %B de %Y.")
+
+        dias_semana = {
+            'Monday': 'segunda-feira', 'Tuesday': 'terça-feira', 'Wednesday': 'quarta-feira',
+            'Thursday': 'quinta-feira', 'Friday': 'sexta-feira', 'Saturday': 'sábado', 'Sunday': 'domingo'
+        }
+        meses = {
+            'January': 'janeiro', 'February': 'fevereiro', 'March': 'março', 'April': 'abril',
+            'May': 'maio', 'June': 'junho', 'July': 'julho', 'August': 'agosto',
+            'September': 'setembro', 'October': 'outubro', 'November': 'novembro', 'December': 'dezembro'
+        }
+
+        dia_semana_en = agora.strftime('%A')
+        mes_en = agora.strftime('%B')
+
+        dia_semana_pt = dias_semana.get(dia_semana_en, dia_semana_en)
+        mes_pt = meses.get(mes_en, mes_en)
+
+        return (f"São {agora.hour} horas e {agora.minute} minutos de {dia_semana_pt}, "
+                f"{agora.day} de {mes_pt} de {agora.year}.")
+
     except Exception as e:
         print(f"Erro em obter_data_hora_atual: {e}")
         return "Não consegui obter a data e hora."
