@@ -152,11 +152,13 @@ main {
     display: flex;
     width: 100%;
     align-items: center;
-    padding: 5px;
+    gap: 8px;
+    flex-wrap: nowrap;
 }
 
 #input_mensagem {
     flex-grow: 1;
+    width: 0;
     background-color: var(--cor-input-fundo);
     border: none;
     padding: 14px 18px;
@@ -166,7 +168,7 @@ main {
     outline: none;
     box-shadow: inset 6px 6px 12px var(--cor-input-sombra-escura),
                 inset -6px -6px 12px var(--cor-input-sombra-clara);
-    margin: 10px;
+    margin: 0;
 }
 
 .botao_icone {
@@ -259,7 +261,11 @@ main {
 
 #preview_pdf_nome {
     font-size: 0.9em;
-    color: #e0e0e0;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 #remover_anexo_btn {
@@ -323,6 +329,19 @@ main {
     margin-left: 5px;
     animation: piscar 1s infinite;
     vertical-align: text-bottom;
+}
+
+.logo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.logo-header {
+    height: 32px;
+    width: auto;
 }
 
 @keyframes piscar {
@@ -395,9 +414,9 @@ footer #imagem-git {
     header h1 { 
         font-size: 1.3rem; 
     }
-    main { 
+    /* main { 
         padding: 14px 0px;
-    }
+    } */
     footer { 
         font-size: 0.85rem; padding: 10px; min-height: auto; 
     }
