@@ -7,10 +7,14 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" defer></script>
     <script src="{{ url_for('static', filename='script/script.js') }}" defer></script>
     <title>DominiChat</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="imagem/png">
 </head>
 <body>
     <header>
-        <a href="https://atv-api-gemini.up.railway.app"><h1>DominiChat</h1></a>
+        <a href="https://atv-api-gemini.up.railway.app" class="logo-link">
+            <h1>DominiChat</h1>
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo DominiChat" class="logo-header">
+        </a>
         <button type="button" id="botao_tema" class="botao_icone" title="Alterar tema">
             <svg id="icone_sol" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px">
                 <path d="M0 0h24v24H0V0z" fill="none"/><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L5.64 5.64zm12.73 12.73c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-1.41-1.41zM5.64 18.36l1.41-1.41c.39-.39.39-1.02 0-1.41s-1.02-.39-1.41 0l-1.41 1.41c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0zM18.36 5.64l1.41 1.41c.39.39.39-1.02 0 1.41s-1.02-.39-1.41 0l-1.41-1.41c-.39-.39-.39-1.02 0-1.41s1.02-.39 1.41 0z"/>
