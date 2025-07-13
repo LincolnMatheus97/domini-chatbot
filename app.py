@@ -200,8 +200,11 @@ def lidar_mensagem_usuario(dados):
                 texto_final_do_bot = "Desculpe, tentei usar uma ferramenta que não conheço."
 
         except (AttributeError, IndexError):
-            texto_final_do_bot = primeira_resposta.text
-        
+            try:
+                texto_final_do_bot = primeira_resposta.text
+            except ValueError:
+                texto_final_do_bot = "Não consegui processar a resposta, mas aqui está o que entendi: " + "".join(p.text for p in primeira_resposta.parts if hasattr(p, 'text'))
+
         if texto_final_do_bot:
             partes_da_resposta_do_bot.append(texto_final_do_bot)
 
@@ -214,11 +217,8 @@ def lidar_mensagem_usuario(dados):
         emit('stream_end')
         session['historico_chat'].append({'role': 'model', 'parts': partes_da_resposta_do_bot})
 
-
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
-        emit('stream_end')
-        emit('resposta_servidor', {'resposta': f'Ocorreu um erro no servidor: {str(e)}'})
 
 # --- Rota e Execução ---
 
