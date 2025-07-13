@@ -110,7 +110,7 @@ Siga os passos abaixo para rodar o projeto na sua máquina.
 
 1.  **Clone o repositório:**
     ```bash
-    git clone `https://github.com/LincolnMatheus97/api_gemini.git`
+    git clone `https://github.com/LincolnMatheus97/domini-chatbot.git`
     cd api_gemini
     ```
 
