@@ -183,27 +183,30 @@ def lidar_mensagem_usuario(dados):
         chat = modelo.start_chat(history=session['historico_chat'])
         primeira_resposta = chat.send_message(prompt_para_gemini)
 
+        
         texto_final_do_bot = None
+        response_had_function_call = False
+        
+        for part in primeira_resposta.parts:
+            if part.function_call:
+                response_had_function_call = True
+                chamada_de_funcao = part.function_call
+                nome_da_funcao = chamada_de_funcao.name
+                argumentos = dict(chamada_de_funcao.args)
 
-        try:
-            chamada_de_funcao = primeira_resposta.candidates[0].content.parts[0].function_call
-            if not chamada_de_funcao.name: raise AttributeError("Chamada sem nome")
-            
-            nome_da_funcao, argumentos = chamada_de_funcao.name, dict(chamada_de_funcao.args)
-            if nome_da_funcao in ferramentas_disponiveis:
-                print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
-                resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                    name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-                texto_final_do_bot = resposta_final.text
-            else:
-                texto_final_do_bot = "Desculpe, tentei usar uma ferramenta que não conheço."
+                if nome_da_funcao in ferramentas_disponiveis:
+                    print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
+                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
+                    texto_final_do_bot = resposta_final.text
+                else:
+                    texto_final_do_bot = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
+                break
 
-        except (AttributeError, IndexError):
-            try:
-                texto_final_do_bot = primeira_resposta.text
-            except ValueError:
-                texto_final_do_bot = "Não consegui processar a resposta, mas aqui está o que entendi: " + "".join(p.text for p in primeira_resposta.parts if hasattr(p, 'text'))
+        if not response_had_function_call:
+            texto_final_do_bot = primeira_resposta.text
+        
 
         if texto_final_do_bot:
             partes_da_resposta_do_bot.append(texto_final_do_bot)
@@ -219,6 +222,8 @@ def lidar_mensagem_usuario(dados):
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
+        emit('stream_end')
+        emit('resposta_servidor', {'resposta': f'Ocorreu um erro no servidor: {str(e)}'})
 
 # --- Rota e Execução ---
 
