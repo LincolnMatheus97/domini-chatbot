@@ -183,7 +183,7 @@ def lidar_mensagem_usuario(dados):
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
                 conteudo_para_historico.append(f"Conteúdo do PDF: {texto_pdf[:200]}...")
 
-        # Se não há nada a ser enviado para o modelo (ex: só uma imagem sem texto e sem prompt), encerra.
+        # Se não há nada a ser enviado para o modelo, encerra.
         if not prompt_para_gemini:
              emit('stream_end')
              return
