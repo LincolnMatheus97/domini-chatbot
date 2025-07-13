@@ -189,7 +189,7 @@ def lidar_mensagem_usuario(dados):
              return
 
         # Adiciona o conteúdo do usuário ao histórico ANTES de enviar ao modelo
-        session['historico_chat'].append({'role': 'user', 'parts': conteudo_para_historico})
+        session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
 
         # Envia a mensagem do usuário (com ou sem arquivo) para o modelo.
         primeira_resposta = chat.send_message(prompt_para_gemini)
