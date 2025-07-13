@@ -49,21 +49,40 @@ def obter_previsao_tempo(local: str):
     """Obtém a previsão do tempo para um local específico usando a API Open-Meteo."""
     print(f"--- Ferramenta: buscando clima para: {local} ---")
     try:
-        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local)}&count=1&language=pt&format=json"
+        # Limpa a string de entrada para melhorar a busca na API de geocodificação.
+        # Remove siglas de estado, vírgulas, hifens, etc.
+        # Ex: "Teresina, PI" se torna "Teresina". "são paulo-sp" se torna "sao paulo".
+        local_limpo = local.split(',')[0].split('-')[0].strip()
+        print(f"--- Localização limpa para a API: {local_limpo} ---")
+
+        # Use a variável 'local_limpo' na URL da API
+        geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local_limpo)}&count=1&language=pt&format=json"
+        
         geo_response = requests.get(geo_url, timeout=10)
         geo_response.raise_for_status()
+
         if not geo_response.json().get('results'):
-            return f"Não consegui encontrar a cidade '{local}'."
+            # Retorna o nome original que o usuário digitou para a mensagem de erro ser clara.
+            return f"Não consegui encontrar a cidade '{local}'. Por favor, tente digitar apenas o nome da cidade."
+        
         location = geo_response.json()['results'][0]
         latitude, longitude, nome_cidade = location['latitude'], location['longitude'], location['name']
+        
         weather_url = (f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
                        f"&current=temperature_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1")
+        
         weather_response = requests.get(weather_url, timeout=10)
         weather_response.raise_for_status()
+        
         data = weather_response.json()
         temp_atual = data['current']['temperature_2m']
         temp_max, temp_min = data['daily']['temperature_2m_max'][0], data['daily']['temperature_2m_min'][0]
+        
         return f"A temperatura atual em {nome_cidade} é de {temp_atual}°C, com máxima de {temp_max}°C e mínima de {temp_min}°C."
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro de conexão em obter_previsao_tempo: {e}")
+        return "Desculpe, não consegui me conectar ao serviço de meteorologia no momento."
     except Exception as e:
         print(f"Erro inesperado em obter_previsao_tempo: {e}")
         return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
