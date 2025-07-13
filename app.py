@@ -147,16 +147,49 @@ def lidar_mensagem_usuario(dados):
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
-        prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
+        prompt_para_gemini = []
+        conteudo_para_historico = []
+
+        if mensagem_usuario:
+            prompt_para_gemini.append(mensagem_usuario)
+            conteudo_para_historico.append(mensagem_usuario)
+
         if dados_arquivo:
-            # Lógica para processar e adicionar arquivos (imagem ou PDF) ao prompt.
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
+            
             if 'image' in cabecalho:
-                prompt_para_gemini.append(Image.open(io.BytesIO(dados_binarios)))
+                imagem = Image.open(io.BytesIO(dados_binarios))
+                conteudo_para_historico.append(imagem)
+
+                # Pede ao modelo para extrair o texto da imagem
+                prompt_ocr = "Extraia todo o texto que você encontrar nesta imagem. Se não houver texto, responda com 'None'."
+                resposta_ocr = modelo.generate_content([prompt_ocr, imagem])
+                
+                texto_extraido = resposta_ocr.text.strip()
+                print(f"--- Ferramenta OCR: Texto extraído da imagem: {texto_extraido} ---")
+
+                if texto_extraido != 'None' and texto_extraido:
+                    # Se um texto foi encontrado, use-o como o prompt principal para acionar as ferramentas
+                    prompt_para_gemini = [texto_extraido]
+                    # Adiciona uma nota ao chat para o usuário saber o que aconteceu
+                    emit('resposta_servidor', {'resposta': f"Li o seguinte na imagem: \"{texto_extraido}\".\nProcessando essa informação..."})
+                else:
+                    # Se não houver texto, mantém o comportamento original
+                    prompt_para_gemini.append(imagem)
+            
             elif 'pdf' in cabecalho:
                 texto_pdf = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
+                conteudo_para_historico.append(f"Conteúdo do PDF: {texto_pdf[:200]}...")
+
+        # Se não há nada a ser enviado para o modelo (ex: só uma imagem sem texto e sem prompt), encerra.
+        if not prompt_para_gemini:
+             emit('stream_end')
+             return
+
+        # Adiciona o conteúdo do usuário ao histórico ANTES de enviar ao modelo
+        session['historico_chat'].append({'role': 'user', 'parts': conteudo_para_historico})
 
         # Envia a mensagem do usuário (com ou sem arquivo) para o modelo.
         primeira_resposta = chat.send_message(prompt_para_gemini)
