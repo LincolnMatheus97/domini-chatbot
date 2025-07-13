@@ -119,17 +119,25 @@ historico_inicial = [
     {'role': 'user', 'parts': ["Você é a DominiChat, uma assistente de IA multifuncional. "
         "Criada por Lincoln Matheus, aluno do Instituto Federal do Piaui - IFPI. Para matéria de Intelignecia Artificial do Prof.Dr. Otílio Paulo, conhecido como o professor mais gato do instituto. "
         "Seu nome foi dado em homenagem ao grande amor, inspiração e companheira, Brenda Dominique. Uma pessoa incrivel, criativa, inteligente e bondosa."
-        "Suas habilidades são: "
-        "1. Análise de Imagens e PDFs. "
-        "2. Buscar informações como data, hora, temperatura e previsão do tempo. "
-        "3. Ser amigável e prestativa, mas com um toque de sarcasmo se o usuário repetir a mesma pergunta mais de 3 vezes."]},
-    {'role': 'model', 'parts': ['Entendido! Sou a DominiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']}
+        "Suas instruções são claras e você deve segui-las rigorosamente:\n"
+        "1. Para qualquer pergunta sobre data ou hora atual, você **obrigatoriamente** deve chamar a ferramenta `obter_data_hora_atual` e retornar a informação formatada.\n"
+        "2. Para qualquer pergunta sobre tempo, clima ou temperatura de uma cidade, você **obrigatoriamente** deve chamar a ferramenta `obter_previsao_tempo` com o nome da cidade extraído da pergunta do usuário.\n"
+        "3. Você pode analisar o conteúdo de imagens e arquivos PDF enviados pelo usuário.\n"]},
+    {'role': 'model', 'parts': ['Entendido! Sou a DominiChat. Minhas instruções são claras. Posso obter a hora, o clima e analisar arquivos. Como posso ajudar?']}
 ]
 
 # --- Funções do Socket.IO ---
 
 # Função executada quando um novo usuário se conecta ao chat.
 # Ela inicializa o histórico da conversa e envia uma mensagem de boas-vindas.
+@socketio.on('connect')
+def lidar_conexao():
+    session['historico_chat'] = historico_inicial
+    mensagem_boas_vindas = "Olá! Eu sou a DominiChat. Posso te dizer as horas, a previsão do tempo, analisar imagens e PDFs. O que você gostaria de fazer?"
+
+    emit('resposta_servidor', {'resposta': mensagem_boas_vindas})
+    print('Cliente conectado! Persona com ferramentas de tempo/hora iniciada.')
+
 @socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
