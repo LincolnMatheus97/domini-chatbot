@@ -12,7 +12,6 @@ import urllib.parse
 import datetime
 
 # --- Ferramentas do assistente ---
-
 def obter_data_hora_atual():
     try:
         fuso_horario = datetime.timezone(datetime.timedelta(hours=-3))
@@ -94,30 +93,37 @@ historico_inicial = [
 # --- Conexão inicial ---
 @socketio.on('connect')
 def lidar_conexao():
-    session['historico_chat'] = historico_inicial
+    session['historico_chat'] = historico_inicial.copy()
     emit('resposta_servidor', {'resposta': "Olá! Eu sou a DominiChat. Me envie uma pergunta, imagem ou PDF!"})
 
 # --- Lógica principal ---
 @socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
-        session['historico_chat'] = historico_inicial
+        session['historico_chat'] = historico_inicial.copy()
 
     mensagem_usuario = dados.get('mensagem', '')
     dados_arquivo = dados.get('arquivo', None)
     prompt_para_gemini = []
 
     try:
-        # --- IMAGEM ou PDF? ---
+        MAX_UPLOAD_MB = 5
+        MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
         if dados_arquivo:
             cabecalho, codificado = dados_arquivo.split(",", 1)
+            if len(codificado) > (MAX_UPLOAD_BYTES * 1.37):  # Ajuste para base64
+                emit('resposta_servidor', {'resposta': f"Arquivo muito grande (máx: {MAX_UPLOAD_MB}MB)."})
+                emit('stream_end')
+                return
+
             dados_binarios = base64.b64decode(codificado)
 
             if 'image' in cabecalho:
                 imagem = Image.open(io.BytesIO(dados_binarios)).convert("RGB")
-                imagem.thumbnail((512, 512))
+                imagem.thumbnail((320, 320))
                 buffer = io.BytesIO()
-                imagem.save(buffer, format="JPEG", quality=70)
+                imagem.save(buffer, format="JPEG", quality=50)
                 buffer.seek(0)
                 imagem_reduzida = Image.open(buffer)
                 prompt_para_gemini.append(imagem_reduzida)
@@ -130,9 +136,9 @@ def lidar_mensagem_usuario(dados):
                 MAX_PDF_CHARS = 2500
                 with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
                     for pagina in doc:
-                        texto_pdf += pagina.get_text()
                         if len(texto_pdf) >= MAX_PDF_CHARS:
                             break
+                        texto_pdf += pagina.get_text()[:MAX_PDF_CHARS - len(texto_pdf)]
                 texto_pdf = texto_pdf[:MAX_PDF_CHARS]
                 prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
                 if len(texto_pdf) >= MAX_PDF_CHARS:
@@ -148,7 +154,7 @@ def lidar_mensagem_usuario(dados):
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta = chat.send_message(prompt_para_gemini)
 
-        # --- EXECUÇÃO DE FERRAMENTA se for o caso ---
+        # Executa ferramenta, se necessário
         try:
             chamada = resposta.candidates[0].content.parts[0].function_call
             if chamada.name in ferramentas_disponiveis:
@@ -158,19 +164,20 @@ def lidar_mensagem_usuario(dados):
         except Exception:
             resultado = resposta.text
 
-        # --- ENVIA RESPOSTA POR STREAM ---
         for c in resultado:
             emit('stream_chunk', {'chunk': c})
             socketio.sleep(0.02)
         emit('stream_end')
 
-        # --- ATUALIZA HISTÓRICO ---
+        # Atualiza histórico com limite
         session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
         session['historico_chat'].append({'role': 'model', 'parts': [resultado]})
+        session['historico_chat'] = session['historico_chat'][-8:]
 
     except Exception as e:
+        print(f"[ERRO] {str(e)}")
         emit('stream_end')
-        emit('resposta_servidor', {'resposta': f"Erro: {e}"})
+        emit('resposta_servidor', {'resposta': f"Erro ao processar: {str(e)}"})
 
 # --- Página inicial ---
 @app.route('/')
