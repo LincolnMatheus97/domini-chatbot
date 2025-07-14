@@ -112,7 +112,7 @@ ferramentas_para_modelo = genai.protos.Tool(
                 required=['local']))])
 
 # Inicializa o modelo generativo, passando a lista de ferramentas que ele pode usar.
-modelo = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", tools=[ferramentas_para_modelo])
+modelo = genai.GenerativeModel(model_name="gemini-2.5-flash", tools=[ferramentas_para_modelo])
 
 # Define a "pessoa" do assistente virtual, seu comportamento e seu modo de apresentar. Além da primeira mensagem que o modelo processa para definir o seu estilo de conversa. 
 historico_inicial = [
