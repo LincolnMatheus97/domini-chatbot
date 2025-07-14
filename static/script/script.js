@@ -26,7 +26,10 @@ const previewPdfNome = getById('preview_pdf_nome');
 const botaoTema = getById('botao_tema');
 const iconeSol = getById('icone_sol');
 const iconeLua = getById('icone_lua');
+const notificacao = getById('notificacao_customizada');
+const notificacaoMensagem = getById('notificacao_mensagem');
 
+let temporizadorNotificacao;
 let anexoTemporario = null;
 
 // --- 2. Ligando os Eventos às Funções de Callback ---
@@ -59,6 +62,17 @@ function lidarCliqueAnexarPdf() {
     getById('menu_anexo').classList.add('hidden');
 }
 
+function mostrarNotificacao(mensagem) {
+    clearTimeout(temporizadorNotificacao);
+
+    notificacaoMensagem.textContent = mensagem;
+    notificacao.classList.add('visible');
+
+    temporizadorNotificacao = setTimeout (() => {
+        notificacao.classList.remove('visible');
+    }, 5000);
+}
+
 function lidarSelecaoDeArquivo(evento) {
     const arquivo = evento.target.files[0];
     if (!arquivo) return;
@@ -66,7 +80,7 @@ function lidarSelecaoDeArquivo(evento) {
     const TAMANHO_MAX_ARQUIVO = 1 * 1024 * 1024;
 
     if (arquivo.size > TAMANHO_MAX_ARQUIVO) {
-        alert(`O arquivo é muito grande! O tamanho máximo permitido é de 1MB`);
+        mostrarNotificacao(`O arquivo é muito grande! O tamanho máximo permitido é de 1MB`);
 
         inputArquivo.value = '';
 
