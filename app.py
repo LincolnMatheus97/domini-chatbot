@@ -112,7 +112,7 @@ ferramentas_para_modelo = genai.protos.Tool(
                 required=['local']))])
 
 # Inicializa o modelo generativo, passando a lista de ferramentas que ele pode usar.
-modelo = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", tools=[ferramentas_para_modelo])
+modelo = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", tools=[ferramentas_para_modelo])
 
 # Define a "pessoa" do assistente virtual, seu comportamento e seu modo de apresentar. Além da primeira mensagem que o modelo processa para definir o seu estilo de conversa. 
 historico_inicial = [
@@ -157,14 +157,12 @@ def lidar_mensagem_usuario(dados):
             
             if 'image' in cabecalho:
                 imagem_original = Image.open(io.BytesIO(dados_binarios))
-                
                 max_size = (512, 512)
                 imagem_original.thumbnail(max_size)
-                
                 prompt_para_gemini.append(imagem_original)
             
             elif 'pdf' in cabecalho:
-                MAX_PDF_CHARS = 2500 
+                MAX_PDF_CHARS = 4000
                 texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
                 prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
@@ -177,24 +175,39 @@ def lidar_mensagem_usuario(dados):
 
         # 2. INICIA O CHAT E ENVIA A MENSAGEM
         chat = modelo.start_chat(history=session['historico_chat'])
-        resposta_do_modelo = chat.send_message(prompt_para_gemini, stream=True)
+        resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO E STREAM DA RESPOSTA
-        texto_completo_stream = ""
-        for chunk in resposta_do_modelo:
-            if chunk.text:
-                texto_para_stream = chunk.text
-                texto_completo_stream += texto_para_stream
-                for caractere in texto_para_stream:
-                    emit('stream_chunk', {'chunk': caractere})
-                    socketio.sleep(0.02)
+        # 3. PROCESSAMENTO DA RESPOSTA
+        texto_para_stream = ""
+        try:
+            # Tenta ler a resposta como texto. Se der erro, é uma ferramenta.
+            texto_para_stream = resposta_do_modelo.text
+        except ValueError:
+            # Com certeza é uma chamada de função.
+            try:
+                chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+                nome_da_funcao = chamada_de_funcao.name
+                argumentos = dict(chamada_de_funcao.args)
+
+                if nome_da_funcao in ferramentas_disponiveis:
+                    # Executa a ferramenta e usa o resultado DIRETAMENTE.
+                    print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
+                    texto_para_stream = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                else:
+                    texto_para_stream = f"Desculpe, tentei usar uma ferramenta desconhecida: {nome_da_funcao}."
+            except Exception as e:
+                print(f"Erro ao processar function call: {e}")
+                texto_para_stream = "Ocorreu um erro ao tentar usar uma das minhas ferramentas."
         
+        # 4. ENVIO DA RESPOSTA E ATUALIZAÇÃO DA MEMÓRIA
+        if texto_para_stream:
+            for caractere in texto_para_stream:
+                emit('stream_chunk', {'chunk': caractere})
+                socketio.sleep(0.02)
         emit('stream_end')
         
-        # 4. ATUALIZAÇÃO DA MEMÓRIA
-        # Atualiza o histórico com o que o usuário disse e o que o bot respondeu.
-        session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
-        session['historico_chat'].append({'role': 'model', 'parts': [texto_completo_stream]})
+        # Salva o histórico COMPLETO da forma correta.
+        session['historico_chat'] = chat.history
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
