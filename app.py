@@ -142,8 +142,25 @@ def lidar_conexao():
 def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
         session['historico_chat'] = historico_inicial
+    
+    # Otimizador de historico
+    TAMANHO_JANELA_HISTORICO = 6
+    
+    historico_completo = session['historico_chat']
+    historico_otimizado = []
 
-    chat = modelo.start_chat(history=session['historico_chat'])
+    # Verifica se o histórico já é maior que a nossa janela + a persona.
+    if len(historico_completo) > TAMANHO_JANELA_HISTORICO + len(historico_inicial):
+        # Se for maior, cria um histórico otimizado. Mantém a persona inicial (os 2 primeiros itens).
+        # Adiciona as últimas 6 mensagens da conversa.
+        historico_otimizado.extend(historico_inicial)
+        historico_otimizado.extend(historico_completo[-TAMANHO_JANELA_HISTORICO:])
+    else:
+        # Se a conversa ainda for curta, usa o histórico completo.
+        historico_otimizado = historico_completo
+
+    # Inicia o chat usando o histórico otimizado, que é muito mais leve.
+    chat = modelo.start_chat(history=historico_otimizado)
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
