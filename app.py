@@ -158,11 +158,9 @@ def lidar_mensagem_usuario(dados):
             if 'image' in cabecalho:
                 imagem = Image.open(io.BytesIO(dados_binarios))
                 prompt_para_gemini.append(imagem)
-
                 prompt_ocr = "Se esta imagem contiver texto legível, transcreva-o. Caso contrário, responda com 'None'."
                 resposta_ocr = modelo.generate_content([prompt_ocr, imagem])
                 texto_extraido = resposta_ocr.text.strip()
-                
                 if texto_extraido and texto_extraido.lower() != 'none':
                     prompt_para_gemini.append(f"(Observação: o texto extraído da imagem foi: '{texto_extraido}')")
             
@@ -179,45 +177,36 @@ def lidar_mensagem_usuario(dados):
              return
 
         # 2. ATUALIZAÇÃO DO HISTÓRICO E CHAMADA DA API
-        session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
         # 3. PROCESSAMENTO DA RESPOSTA
-        texto_final_do_bot = ""
-        chamada_de_funcao = None
-
-        # Estrutura de verificação defensiva para evitar crashes
-        if resposta_do_modelo.candidates and resposta_do_modelo.candidates[0].content and resposta_do_modelo.candidates[0].content.parts:
-            for part in resposta_do_modelo.candidates[0].content.parts:
-                if part.function_call:
-                    chamada_de_funcao = part.function_call
-                    break 
-        
-        if chamada_de_funcao and chamada_de_funcao.name:
-            # É uma chamada de função, vamos executá-la
-            nome_da_funcao = chamada_de_funcao.name
-            argumentos = dict(chamada_de_funcao.args)
-            if nome_da_funcao in ferramentas_disponiveis:
-                resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                    name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-                texto_final_do_bot = resposta_final.text
+        texto_para_stream = ""
+        try:
+            chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+            if chamada_de_funcao.name:
+                nome_da_funcao = chamada_de_funcao.name
+                argumentos = dict(chamada_de_funcao.args)
+                if nome_da_funcao in ferramentas_disponiveis:
+                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
+                    texto_para_stream = resposta_final.text
+                else:
+                    texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
             else:
-                texto_final_do_bot = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
-        else:
-            # Se não é uma chamada de função, com certeza é texto.
-            texto_final_do_bot = resposta_do_modelo.text
+                 raise AttributeError("Não é uma chamada de função válida")
+        except (AttributeError, IndexError):
+            texto_para_stream = resposta_do_modelo.text
 
         # 4. ENVIO DA RESPOSTA PARA O FRONTEND
-        if texto_final_do_bot:
-            for caractere in texto_final_do_bot:
+        if texto_para_stream:
+            for caractere in texto_para_stream:
                 emit('stream_chunk', {'chunk': caractere})
                 socketio.sleep(0.02)
-
         emit('stream_end')
-        # Salva a resposta final do bot no histórico da sessão
-        session['historico_chat'].append({'role': 'model', 'parts': [texto_final_do_bot]})
+
+        session['historico_chat'] = chat.history
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
