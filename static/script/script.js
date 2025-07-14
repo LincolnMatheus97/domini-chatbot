@@ -63,7 +63,7 @@ function lidarSelecaoDeArquivo(evento) {
     const arquivo = evento.target.files[0];
     if (!arquivo) return;
 
-    const TAMANHO_MAX_ARQUIVO = 5 * 1024 * 1024;
+    const TAMANHO_MAX_ARQUIVO = 4 * 1024 * 1024;
 
     if (arquivo.size > TAMANHO_MAX_ARQUIVO) {
         alert(`O arquivo é muito grande! O tamanho máximo permitido é de ${TAMANHO_MAX_ARQUIVO / 1024 / 1024}MB`);
