@@ -153,16 +153,25 @@ def lidar_mensagem_usuario(dados):
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
             if 'image' in cabecalho:
-                img = Image.open(io.BytesIO(dados_binarios))
+                img_stream = io.BytesIO(dados_binarios)
+                img = Image.open(img_stream)
 
                 # Define um tamanho máximo de pixels (ex: 1024x1024)
                 MAX_SIZE = (1024, 1024)
 
-                # O método thumbnail redimensiona a imagem mantendo a proporção.
-                # Ele modifica o objeto 'img' diretamente, sem criar uma nova cópia.
-                img.thumbnail(MAX_SIZE)
+                # Esta é a nova etapa crucial:
+                # Usamos o modo 'draft' para carregar uma versão menor da imagem,
+                # economizando uma grande quantidade de memória inicial.
+                img.draft('RGB', MAX_SIZE)
 
-                # Adiciona o objeto de imagem JÁ REDIMENSIONADO ao prompt
+                # O thumbnail agora opera em uma imagem que já foi pré-reduzida na memória.
+                img.thumbnail(MAX_SIZE)
+                
+                # Para garantir a compatibilidade, convertemos para RGB.
+                # O Gemini pode ter problemas com alguns formatos como 'P' (paleta).
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+
                 prompt_para_gemini.append(img)
             elif 'pdf' in cabecalho:
                 texto_pdf = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
