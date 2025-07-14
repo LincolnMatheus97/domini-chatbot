@@ -146,7 +146,7 @@ def lidar_mensagem_usuario(dados):
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
-        # 1. PREPARAÇÃO DO PROMPT (LÓGICA SIMPLIFICADA)
+        # 1. PREPARAÇÃO DO PROMPT
         prompt_para_gemini = []
         if mensagem_usuario:
             prompt_para_gemini.append(mensagem_usuario)
@@ -157,12 +157,10 @@ def lidar_mensagem_usuario(dados):
             
             if 'image' in cabecalho:
                 imagem = Image.open(io.BytesIO(dados_binarios))
-                # Apenas adicionamos a imagem. Sem OCR separado. O modelo vai analisar tudo junto.
                 prompt_para_gemini.append(imagem)
             
             elif 'pdf' in cabecalho:
-                # Reduzimos o limite de caracteres para garantir que não trave por memória.
-                MAX_PDF_CHARS = 4000 
+                MAX_PDF_CHARS = 4000
                 texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
                 prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
@@ -173,41 +171,42 @@ def lidar_mensagem_usuario(dados):
              emit('stream_end')
              return
 
-        # 2. INICIA O CHAT E ENVIA A MENSAGEM (UMA ÚNICA VEZ)
+        # 2. CHAMADA ÚNICA À API PARA ENTENDER A INTENÇÃO
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA INVERTIDA E SEGURA)
+        # 3. PROCESSAMENTO DIRETO DA RESPOSTA
         texto_para_stream = ""
         try:
-            # Tenta ler a resposta como texto. Se falhar, é porque é uma chamada de função.
-            texto_para_stream = resposta_do_modelo.text
-        except ValueError:
-            # Agora temos certeza que é uma chamada de função.
-            try:
-                chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+            # Tenta acessar a chamada de função de forma segura
+            chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+            
+            if chamada_de_funcao.name:
                 nome_da_funcao = chamada_de_funcao.name
                 argumentos = dict(chamada_de_funcao.args)
 
                 if nome_da_funcao in ferramentas_disponiveis:
-                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-                    texto_para_stream = resposta_final.text
+                    # Executa a ferramenta e USA O RESULTADO DIRETAMENTE.
+                    # SEM SEGUNDA CHAMADA À API.
+                    texto_para_stream = ferramentas_disponiveis[nome_da_funcao](**argumentos)
                 else:
-                    texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
-            except Exception as e:
-                print(f"Erro ao processar function call: {e}")
-                texto_para_stream = "Ocorreu um erro ao tentar usar uma das minhas ferramentas."
-        
-        # 4. ENVIO DA RESPOSTA E ATUALIZAÇÃO DA MEMÓRIA
+                    texto_para_stream = f"Desculpe, tentei usar uma ferramenta desconhecida: {nome_da_funcao}."
+            else:
+                 raise AttributeError("Não é uma chamada de função válida")
+        except (AttributeError, IndexError):
+            # Se não é uma chamada de função, é um texto simples.
+            texto_para_stream = resposta_do_modelo.text
+
+        # 4. ENVIO E ATUALIZAÇÃO FINAL
         if texto_para_stream:
             for caractere in texto_para_stream:
                 emit('stream_chunk', {'chunk': caractere})
                 socketio.sleep(0.02)
         emit('stream_end')
         
-        session['historico_chat'] = chat.history
+        # Atualiza o histórico com o que o usuário disse e o que o bot respondeu.
+        session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
+        session['historico_chat'].append({'role': 'model', 'parts': [texto_para_stream]})
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
