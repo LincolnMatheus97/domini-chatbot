@@ -146,7 +146,7 @@ def lidar_mensagem_usuario(dados):
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
-        # 1. PREPARAÇÃO DO PROMPT 
+        # 1. PREPARAÇÃO DO PROMPT
         prompt_para_gemini = []
         if mensagem_usuario:
             prompt_para_gemini.append(mensagem_usuario)
@@ -180,14 +180,15 @@ def lidar_mensagem_usuario(dados):
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA ROBUSTA E CORRIGIDA)
+        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA FINAL "À PROVA DE BALAS")
         texto_para_stream = ""
         try:
-            # Tenta acessar a chamada de função de forma segura.
-            chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
-            
-            # Se a linha acima não deu erro e o nome da função existe, é uma ferramenta.
-            if chamada_de_funcao.name:
+            # Tenta ler a resposta como texto. Se falhar com ValueError, é uma chamada de função.
+            texto_para_stream = resposta_do_modelo.text
+        except ValueError:
+            # Se deu erro, agora sim temos certeza que é uma chamada de função.
+            try:
+                chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
                 nome_da_funcao = chamada_de_funcao.name
                 argumentos = dict(chamada_de_funcao.args)
 
@@ -198,22 +199,17 @@ def lidar_mensagem_usuario(dados):
                     texto_para_stream = resposta_final.text
                 else:
                     texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
-            else:
-                 # Se o objeto existe mas o nome é vazio, força a ida para o bloco except.
-                 raise AttributeError("Não é uma chamada de função válida")
-        except (AttributeError, IndexError):
-            # Se falhou em qualquer ponto da checagem, com certeza é um texto simples.
-            texto_para_stream = resposta_do_modelo.text
-
-        # 4. ENVIO DA RESPOSTA PARA O FRONTEND
+            except (AttributeError, IndexError, Exception) as e:
+                print(f"Erro ao processar function call: {e}")
+                texto_para_stream = "Ocorreu um erro ao tentar usar uma das minhas ferramentas."
+        
+        # 4. ENVIO DA RESPOSTA E ATUALIZAÇÃO DA MEMÓRIA
         if texto_para_stream:
             for caractere in texto_para_stream:
                 emit('stream_chunk', {'chunk': caractere})
                 socketio.sleep(0.02)
         emit('stream_end')
-
-        # 5. ATUALIZAÇÃO DA MEMÓRIA
-        # Salva o histórico COMPLETO do objeto 'chat' de volta para a sessão.
+        
         session['historico_chat'] = chat.history
 
     except Exception as e:
