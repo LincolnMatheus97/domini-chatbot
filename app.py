@@ -143,58 +143,84 @@ def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
         session['historico_chat'] = historico_inicial
 
-    chat = modelo.start_chat(history=session['historico_chat'])
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
-        prompt_para_gemini = [mensagem_usuario] if mensagem_usuario else []
+        # 1. PREPARAÇÃO DO PROMPT
+        prompt_para_gemini = []
+        if mensagem_usuario:
+            prompt_para_gemini.append(mensagem_usuario)
+
         if dados_arquivo:
-            # Lógica para processar e adicionar arquivos (imagem ou PDF) ao prompt.
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
+            
             if 'image' in cabecalho:
-                prompt_para_gemini.append(Image.open(io.BytesIO(dados_binarios)))
+                imagem = Image.open(io.BytesIO(dados_binarios))
+                # Adiciona a imagem ao prompt. Diferente de antes, não vamos mais jogá-la fora.
+                prompt_para_gemini.append(imagem)
+
+                # Tentamos extrair texto como informação adicional.
+                prompt_ocr = "Se esta imagem contiver texto legível, transcreva-o. Caso contrário, responda com 'None'."
+                resposta_ocr = modelo.generate_content([prompt_ocr, imagem])
+                texto_extraido = resposta_ocr.text.strip()
+                
+                if texto_extraido and texto_extraido.lower() != 'none':
+                    # Adicionamos o texto extraído como CONTEXTO, não como o prompt principal.
+                    prompt_para_gemini.append(f"(Observação: o texto extraído da imagem foi: '{texto_extraido}')")
+            
             elif 'pdf' in cabecalho:
-                texto_pdf = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
-                prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF ---\n{texto_pdf}")
+                # CORREÇÃO PARA PDF: Trunca o texto para evitar crashes.
+                MAX_PDF_CHARS = 8000
+                texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
+                texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
+                
+                prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF (primeiros {MAX_PDF_CHARS} caracteres) ---\n{texto_pdf}")
+                if len(texto_pdf_completo) > MAX_PDF_CHARS:
+                    prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido por ser muito longo) ---")
 
-        # Envia a mensagem do usuário (com ou sem arquivo) para o modelo.
-        primeira_resposta = chat.send_message(prompt_para_gemini)
+        if not prompt_para_gemini:
+             emit('stream_end')
+             return
 
-        # Bloco que verifica se a resposta do modelo é uma chamada de função ou um texto direto.
+        # 2. ATUALIZAÇÃO DO HISTÓRICO E CHAMADA DA API
+        session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
+        chat = modelo.start_chat(history=session['historico_chat'])
+        resposta_do_modelo = chat.send_message(prompt_para_gemini)
+
+        # 3. PROCESSAMENTO DA RESPOSTA 
+        texto_final_do_bot = ""
         try:
-            chamada_de_funcao = primeira_resposta.candidates[0].content.parts[0].function_call
-            if not chamada_de_funcao.name: raise AttributeError("Chamada sem nome")
+            # A forma mais segura de verificar é checar se a resposta tem o atributo 'function_call'
+            if resposta_do_modelo.candidates[0].content.parts[0].function_call.name:
+                chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+                nome_da_funcao = chamada_de_funcao.name
+                argumentos = dict(chamada_de_funcao.args)
+
+                if nome_da_funcao in ferramentas_disponiveis:
+                    print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
+                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                    # Envia o resultado da ferramenta de volta para obter a resposta em texto
+                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
+                    texto_final_do_bot = resposta_final.text
+                else:
+                    texto_final_do_bot = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
+            else:
+                 # Se não tem um nome de função válido, trata como texto
+                 raise AttributeError("Não é uma chamada de função válida")
         except (AttributeError, IndexError):
-            # Se NÃO for uma chamada de função, a resposta é texto.
-            # Envia o texto para o frontend e encerra a função.
-            if primeira_resposta.text:
-                for caractere in primeira_resposta.text: emit('stream_chunk', {'chunk': caractere}); socketio.sleep(0.02)
-                emit('stream_end')
-                session['historico_chat'] = chat.history
-            return
+            # Se falhou em qualquer ponto da checagem de função, é uma resposta de texto.
+            texto_final_do_bot = resposta_do_modelo.text
 
-        # Se FOR uma chamada de função.
-        nome_da_funcao, argumentos = chamada_de_funcao.name, dict(chamada_de_funcao.args)
-
-        if nome_da_funcao in ferramentas_disponiveis:
-            # Executa a função correspondente e obtém o resultado.
-            print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
-            resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-
-            # Envia o resultado da ferramenta de volta para o modelo, que irá gerar uma resposta em texto.
-            resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-
-            # Envia a resposta final em texto para o frontend.
-            if resposta_final.text:
-                for caractere in resposta_final.text: emit('stream_chunk', {'chunk': caractere}); socketio.sleep(0.02)
-        else:
-            print(f"Função '{nome_da_funcao}' não encontrada.")
-            emit('resposta_servidor', {'resposta': "Desculpe, tentei usar uma ferramenta que não conheço."})
+        # 4. ENVIO DA RESPOSTA PARA O FRONTEND
+        if texto_final_do_bot:
+            for caractere in texto_final_do_bot:
+                emit('stream_chunk', {'chunk': caractere})
+                socketio.sleep(0.02)
 
         emit('stream_end')
-        session['historico_chat'] = chat.history
+        session['historico_chat'].append({'role': 'model', 'parts': [texto_final_do_bot]})
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
