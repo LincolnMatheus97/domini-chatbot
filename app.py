@@ -49,20 +49,15 @@ def obter_previsao_tempo(local: str):
     """Obtém a previsão do tempo para um local específico usando a API Open-Meteo."""
     print(f"--- Ferramenta: buscando clima para: {local} ---")
     try:
-        # Limpa a string de entrada para melhorar a busca na API de geocodificação.
-        # Remove siglas de estado, vírgulas, hifens, etc.
-        # Ex: "Teresina, PI" se torna "Teresina". "são paulo-sp" se torna "sao paulo".
         local_limpo = local.split(',')[0].split('-')[0].strip()
         print(f"--- Localização limpa para a API: {local_limpo} ---")
 
-        # Use a variável 'local_limpo' na URL da API
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local_limpo)}&count=1&language=pt&format=json"
 
         geo_response = requests.get(geo_url, timeout=10)
         geo_response.raise_for_status()
         
         if not geo_response.json().get('results'):
-            # Retorna o nome original que o usuário digitou para a mensagem de erro ser clara.
             return f"Não consegui encontrar a cidade '{local}'. Por favor, tente digitar apenas o nome da cidade."
         
         location = geo_response.json()['results'][0]
@@ -87,7 +82,8 @@ def obter_previsao_tempo(local: str):
         print(f"Erro inesperado em obter_previsao_tempo: {e}")
         return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
 
-# --- Configuração Inicial e do Modelo ---
+# --- 2. INICIALIZAÇÃO DO MODELO ---
+
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 
@@ -126,7 +122,7 @@ historico_inicial = [
     {'role': 'model', 'parts': ['Entendido! Sou a DominiChat. Posso ver horas, o clima e analisar arquivos. Como posso ajudar?']}
 ]
 
-# --- Funções do Socket.IO ---
+# --- 3. CONFIGURAÇÃO DO BACKEND DO CHATBOT
 
 # Função executada quando um novo usuário se conecta ao chat.
 # Ela inicializa o histórico da conversa e envia uma mensagem de boas-vindas.
@@ -151,8 +147,7 @@ def lidar_mensagem_usuario(dados):
 
     # Verifica se o histórico já é maior que a nossa janela + a persona.
     if len(historico_completo) > TAMANHO_JANELA_HISTORICO + len(historico_inicial):
-        # Se for maior, cria um histórico otimizado. Mantém a persona inicial (os 2 primeiros itens).
-        # Adiciona as últimas 6 mensagens da conversa.
+        # Se for maior, cria um histórico otimizado. Mantém a persona inicial e adiciona as últimas 6 mensagens da conversa.
         historico_otimizado.extend(historico_inicial)
         historico_otimizado.extend(historico_completo[-TAMANHO_JANELA_HISTORICO:])
     else:
@@ -218,7 +213,7 @@ def lidar_mensagem_usuario(dados):
         emit('stream_end')
         emit('resposta_servidor', {'resposta': f'Ocorreu um erro no servidor: {str(e)}'})
 
-# --- Rota e Execução ---
+# --- 4. ROTA E EXECUÇÃO ---
 
 # Define a rota principal que carrega a página web (o arquivo index.html).
 @app.route('/')
