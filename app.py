@@ -130,6 +130,7 @@ def lidar_mensagem_usuario(dados):
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
+        # 1. PREPARAÇÃO DO PROMPT
         prompt_para_gemini = []
         if mensagem_usuario:
             prompt_para_gemini.append(mensagem_usuario)
@@ -137,49 +138,59 @@ def lidar_mensagem_usuario(dados):
         if dados_arquivo:
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
-
+            
             if 'image' in cabecalho:
-                imagem_original = Image.open(io.BytesIO(dados_binarios)).convert("RGB")
-                imagem_original.thumbnail((512, 512))
-                imagem_processada = io.BytesIO()
-                imagem_original.save(imagem_processada, format="JPEG", quality=70)
-                imagem_processada.seek(0)
-                imagem_final = Image.open(imagem_processada)
-                prompt_para_gemini.append(imagem_final)
-
+                imagem = Image.open(io.BytesIO(dados_binarios))
+                prompt_para_gemini.append(imagem)
+            
             elif 'pdf' in cabecalho:
-                MAX_PDF_CHARS = 2500
-                texto_pdf = ""
-                with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
-                    for pagina in doc:
-                        texto_pdf += pagina.get_text()
-                        if len(texto_pdf) >= MAX_PDF_CHARS:
-                            break
-                texto_pdf = texto_pdf[:MAX_PDF_CHARS]
+                MAX_PDF_CHARS = 4000
+                texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
+                texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
                 prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
-                if len(texto_pdf) >= MAX_PDF_CHARS:
+                if len(texto_pdf_completo) > MAX_PDF_CHARS:
                     prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido) ---")
 
         if not prompt_para_gemini:
-            emit('stream_end')
-            return
+             emit('stream_end')
+             return
 
+        # 2. CHAMADA ÚNICA À API PARA ENTENDER A INTENÇÃO
         chat = modelo.start_chat(history=session['historico_chat'])
-        resposta_do_modelo = chat.send_message(prompt_para_gemini, stream=True)
+        resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        texto_completo_stream = ""
-        for chunk in resposta_do_modelo:
-            if chunk.text:
-                texto_para_stream = chunk.text
-                texto_completo_stream += texto_para_stream
-                for caractere in texto_para_stream:
-                    emit('stream_chunk', {'chunk': caractere})
-                    socketio.sleep(0.02)
+        # 3. PROCESSAMENTO DIRETO DA RESPOSTA
+        texto_para_stream = ""
+        try:
+            # Tenta acessar a chamada de função de forma segura
+            chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
+            
+            if chamada_de_funcao.name:
+                nome_da_funcao = chamada_de_funcao.name
+                argumentos = dict(chamada_de_funcao.args)
 
+                if nome_da_funcao in ferramentas_disponiveis:
+                    # Executa a ferramenta e USA O RESULTADO DIRETAMENTE.
+                    # SEM SEGUNDA CHAMADA À API.
+                    texto_para_stream = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                else:
+                    texto_para_stream = f"Desculpe, tentei usar uma ferramenta desconhecida: {nome_da_funcao}."
+            else:
+                 raise AttributeError("Não é uma chamada de função válida")
+        except (AttributeError, IndexError):
+            # Se não é uma chamada de função, é um texto simples.
+            texto_para_stream = resposta_do_modelo.text
+
+        # 4. ENVIO E ATUALIZAÇÃO FINAL
+        if texto_para_stream:
+            for caractere in texto_para_stream:
+                emit('stream_chunk', {'chunk': caractere})
+                socketio.sleep(0.02)
         emit('stream_end')
-
+        
+        # Atualiza o histórico com o que o usuário disse e o que o bot respondeu.
         session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
-        session['historico_chat'].append({'role': 'model', 'parts': [texto_completo_stream]})
+        session['historico_chat'].append({'role': 'model', 'parts': [texto_para_stream]})
 
     except Exception as e:
         print(f'Erro no backend: {type(e).__name__}: {str(e)}')
