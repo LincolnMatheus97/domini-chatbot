@@ -11,15 +11,12 @@ import requests
 import urllib.parse
 import datetime
 
-# --- 1. DEFINIÇÃO DAS FERRAMENTAS ---
+# --- Ferramentas do assistente ---
 
 def obter_data_hora_atual():
-    """Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."""
-    print("--- Ferramenta: obtendo data e hora atual ---")
     try:
         fuso_horario = datetime.timezone(datetime.timedelta(hours=-3))
         agora = datetime.datetime.now(fuso_horario)
-
         dias_semana = {
             'Monday': 'segunda-feira', 'Tuesday': 'terça-feira', 'Wednesday': 'quarta-feira',
             'Thursday': 'quinta-feira', 'Friday': 'sexta-feira', 'Saturday': 'sábado', 'Sunday': 'domingo'
@@ -29,180 +26,156 @@ def obter_data_hora_atual():
             'May': 'maio', 'June': 'junho', 'July': 'julho', 'August': 'agosto',
             'September': 'setembro', 'October': 'outubro', 'November': 'novembro', 'December': 'dezembro'
         }
-
-        dia_semana_en = agora.strftime('%A')
-        mes_en = agora.strftime('%B')
-        dia_semana_pt = dias_semana.get(dia_semana_en, dia_semana_en)
-        mes_pt = meses.get(mes_en, mes_en)
-
-        return (f"São {agora.hour} horas e {agora.minute} minutos de {dia_semana_pt}, "
-                f"{agora.day} de {mes_pt} de {agora.year}.")
-
+        return (f"São {agora.hour} horas e {agora.minute} minutos de {dias_semana[agora.strftime('%A')]}, "
+                f"{agora.day} de {meses[agora.strftime('%B')]} de {agora.year}.")
     except Exception as e:
-        print(f"Erro em obter_data_hora_atual: {e}")
         return "Não consegui obter a data e hora."
 
-
 def obter_previsao_tempo(local: str):
-    """Obtém a previsão do tempo para um local específico usando a API Open-Meteo."""
-    print(f"--- Ferramenta: buscando clima para: {local} ---")
     try:
         local_limpo = local.split(',')[0].split('-')[0].strip()
-        print(f"--- Localização limpa para a API: {local_limpo} ---")
-
         geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={urllib.parse.quote(local_limpo)}&count=1&language=pt&format=json"
         geo_response = requests.get(geo_url, timeout=10)
         geo_response.raise_for_status()
-
         if not geo_response.json().get('results'):
-            return f"Não consegui encontrar a cidade '{local}'. Por favor, tente digitar apenas o nome da cidade."
-
+            return f"Não consegui encontrar a cidade '{local}'. Tente apenas o nome da cidade."
         location = geo_response.json()['results'][0]
         latitude, longitude, nome_cidade = location['latitude'], location['longitude'], location['name']
-
         weather_url = (f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}"
                        f"&current=temperature_2m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1")
-
         weather_response = requests.get(weather_url, timeout=10)
         weather_response.raise_for_status()
-
         data = weather_response.json()
         temp_atual = data['current']['temperature_2m']
-        temp_max, temp_min = data['daily']['temperature_2m_max'][0], data['daily']['temperature_2m_min'][0]
-
+        temp_max = data['daily']['temperature_2m_max'][0]
+        temp_min = data['daily']['temperature_2m_min'][0]
         return f"A temperatura atual em {nome_cidade} é de {temp_atual}°C, com máxima de {temp_max}°C e mínima de {temp_min}°C."
+    except Exception:
+        return "Desculpe, não consegui obter o clima no momento."
 
-    except requests.exceptions.RequestException as e:
-        print(f"Erro de conexão em obter_previsao_tempo: {e}")
-        return "Desculpe, não consegui me conectar ao serviço de meteorologia no momento."
-    except Exception as e:
-        print(f"Erro inesperado em obter_previsao_tempo: {e}")
-        return "Ocorreu um erro inesperado ao buscar a previsão do tempo."
-
-# --- Configuração Inicial e do Modelo ---
+# --- Inicialização ---
 load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
-
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "j8rQWR3C$!r$WFPWEgRxqz")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# Ferramentas disponíveis
 ferramentas_disponiveis = {
     'obter_data_hora_atual': obter_data_hora_atual,
     'obter_previsao_tempo': obter_previsao_tempo,
 }
-
-ferramentas_para_modelo = genai.protos.Tool(
-    function_declarations=[
-        genai.protos.FunctionDeclaration(name='obter_data_hora_atual', description="Retorna a data e a hora atuais formatadas em português para o fuso horário de Brasília."),
-        genai.protos.FunctionDeclaration(name='obter_previsao_tempo', description="Obtém a previsão do tempo ou temperatura para uma cidade específica.",
-            parameters=genai.protos.Schema(type=genai.protos.Type.OBJECT,
-                properties={'local': genai.protos.Schema(type=genai.protos.Type.STRING, description="A cidade para buscar a previsão do tempo ou temperatura (ex: 'Teresina, PI')")},
-                required=['local']))])
-
+ferramentas_para_modelo = genai.protos.Tool(function_declarations=[
+    genai.protos.FunctionDeclaration(
+        name='obter_data_hora_atual',
+        description="Retorna a data e a hora atuais em português, com base no fuso horário de Brasília."),
+    genai.protos.FunctionDeclaration(
+        name='obter_previsao_tempo',
+        description="Retorna temperatura e previsão para uma cidade.",
+        parameters=genai.protos.Schema(
+            type=genai.protos.Type.OBJECT,
+            properties={'local': genai.protos.Schema(type=genai.protos.Type.STRING)},
+            required=['local']
+        )
+    )
+])
 modelo = genai.GenerativeModel(model_name="gemini-1.5-flash-latest", tools=[ferramentas_para_modelo])
 
+# Personalidade inicial
 historico_inicial = [
-    {'role': 'user', 'parts': ["Você é a DominiChat, uma assistente de IA multifuncional. "
-        "Criada por Lincoln Matheus, aluno do Instituto Federal do Piaui - IFPI. Para matéria de Intelignecia Artificial do Prof.Dr. Otílio Paulo, conhecido como o professor mais gato do instituto. "
-        "Seu nome foi dado em homenagem ao grande amor, inspiração e companheira, Brenda Dominique. Uma pessoa incrivel, criativa, inteligente e bondosa."
-        "Suas instruções são claras e você deve segui-las rigorosamente:\n"
-        "1. Para qualquer pergunta sobre data ou hora atual, você **obrigatoriamente** deve chamar a ferramenta `obter_data_hora_atual` e retornar a informação formatada.\n"
-        "2. Para qualquer pergunta sobre tempo, clima ou temperatura de uma cidade, você **obrigatoriamente** deve chamar a ferramenta `obter_previsao_tempo` com o nome da cidade extraído da pergunta do usuário.\n"
-        "3. Você pode analisar o conteúdo de imagens e arquivos PDF enviados pelo usuário.\n"]},
-    {'role': 'model', 'parts': ['Entendido! Sou a DominiChat. Minhas instruções são claras. Posso obter a hora, o clima e analisar arquivos. Como posso ajudar?']}
+    {'role': 'user', 'parts': ["Você é a DominiChat, assistente criada por Lincoln Matheus, do IFPI, "
+     "para a disciplina de IA do Prof. Otílio, mais conhecido como o professor mais gato do IFPI. Você responde perguntas sobre hora, clima, lê imagens e PDFs.\n"
+     "1. Para perguntas sobre hora, sempre use `obter_data_hora_atual`.\n"
+     "2. Para clima/temperatura, sempre use `obter_previsao_tempo`.\n"
+     "3. Pode analisar conteúdo de imagens e PDFs enviados."]},
+    {'role': 'model', 'parts': ["Entendido! Sou a DominiChat. Posso obter hora, clima, ler imagens e PDFs."]},
 ]
 
-# --- Funções do Socket.IO ---
-
+# --- Conexão inicial ---
 @socketio.on('connect')
 def lidar_conexao():
     session['historico_chat'] = historico_inicial
-    mensagem_boas_vindas = "Olá! Eu sou a DominiChat. Posso te dizer as horas, a previsão do tempo, analisar imagens e PDFs. O que você gostaria de fazer?"
-    emit('resposta_servidor', {'resposta': mensagem_boas_vindas})
-    print('Cliente conectado! Persona com ferramentas de tempo/hora iniciada.')
+    emit('resposta_servidor', {'resposta': "Olá! Eu sou a DominiChat. Me envie uma pergunta, imagem ou PDF!"})
 
+# --- Lógica principal ---
 @socketio.on('enviar_mensagem')
 def lidar_mensagem_usuario(dados):
     if 'historico_chat' not in session:
         session['historico_chat'] = historico_inicial
 
-    mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
+    mensagem_usuario = dados.get('mensagem', '')
+    dados_arquivo = dados.get('arquivo', None)
+    prompt_para_gemini = []
 
     try:
-        # 1. PREPARAÇÃO DO PROMPT
-        prompt_para_gemini = []
-        if mensagem_usuario:
-            prompt_para_gemini.append(mensagem_usuario)
-
+        # --- IMAGEM ou PDF? ---
         if dados_arquivo:
             cabecalho, codificado = dados_arquivo.split(",", 1)
             dados_binarios = base64.b64decode(codificado)
-            
+
             if 'image' in cabecalho:
-                imagem = Image.open(io.BytesIO(dados_binarios))
-                prompt_para_gemini.append(imagem)
-            
+                imagem = Image.open(io.BytesIO(dados_binarios)).convert("RGB")
+                imagem.thumbnail((512, 512))
+                buffer = io.BytesIO()
+                imagem.save(buffer, format="JPEG", quality=70)
+                buffer.seek(0)
+                imagem_reduzida = Image.open(buffer)
+                prompt_para_gemini.append(imagem_reduzida)
+
+                if not mensagem_usuario:
+                    prompt_para_gemini.append("Analise o que está escrito na imagem e, se for uma pergunta, responda como se fosse digitada.")
+
             elif 'pdf' in cabecalho:
-                MAX_PDF_CHARS = 4000
-                texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
-                texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
+                texto_pdf = ""
+                MAX_PDF_CHARS = 2500
+                with fitz.open(stream=dados_binarios, filetype="pdf") as doc:
+                    for pagina in doc:
+                        texto_pdf += pagina.get_text()
+                        if len(texto_pdf) >= MAX_PDF_CHARS:
+                            break
+                texto_pdf = texto_pdf[:MAX_PDF_CHARS]
                 prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
-                if len(texto_pdf_completo) > MAX_PDF_CHARS:
+                if len(texto_pdf) >= MAX_PDF_CHARS:
                     prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido) ---")
 
+        if mensagem_usuario:
+            prompt_para_gemini.insert(0, mensagem_usuario)
+
         if not prompt_para_gemini:
-             emit('stream_end')
-             return
+            emit('stream_end')
+            return
 
-        # 2. CHAMADA ÚNICA À API PARA ENTENDER A INTENÇÃO
         chat = modelo.start_chat(history=session['historico_chat'])
-        resposta_do_modelo = chat.send_message(prompt_para_gemini)
+        resposta = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DIRETO DA RESPOSTA
-        texto_para_stream = ""
+        # --- EXECUÇÃO DE FERRAMENTA se for o caso ---
         try:
-            # Tenta acessar a chamada de função de forma segura
-            chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
-            
-            if chamada_de_funcao.name:
-                nome_da_funcao = chamada_de_funcao.name
-                argumentos = dict(chamada_de_funcao.args)
-
-                if nome_da_funcao in ferramentas_disponiveis:
-                    # Executa a ferramenta e USA O RESULTADO DIRETAMENTE.
-                    # SEM SEGUNDA CHAMADA À API.
-                    texto_para_stream = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                else:
-                    texto_para_stream = f"Desculpe, tentei usar uma ferramenta desconhecida: {nome_da_funcao}."
+            chamada = resposta.candidates[0].content.parts[0].function_call
+            if chamada.name in ferramentas_disponiveis:
+                resultado = ferramentas_disponiveis[chamada.name](**dict(chamada.args))
             else:
-                 raise AttributeError("Não é uma chamada de função válida")
-        except (AttributeError, IndexError):
-            # Se não é uma chamada de função, é um texto simples.
-            texto_para_stream = resposta_do_modelo.text
+                resultado = resposta.text
+        except Exception:
+            resultado = resposta.text
 
-        # 4. ENVIO E ATUALIZAÇÃO FINAL
-        if texto_para_stream:
-            for caractere in texto_para_stream:
-                emit('stream_chunk', {'chunk': caractere})
-                socketio.sleep(0.02)
+        # --- ENVIA RESPOSTA POR STREAM ---
+        for c in resultado:
+            emit('stream_chunk', {'chunk': c})
+            socketio.sleep(0.02)
         emit('stream_end')
-        
-        # Atualiza o histórico com o que o usuário disse e o que o bot respondeu.
+
+        # --- ATUALIZA HISTÓRICO ---
         session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
-        session['historico_chat'].append({'role': 'model', 'parts': [texto_para_stream]})
+        session['historico_chat'].append({'role': 'model', 'parts': [resultado]})
 
     except Exception as e:
-        print(f'Erro no backend: {type(e).__name__}: {str(e)}')
         emit('stream_end')
-        emit('resposta_servidor', {'resposta': f'Ocorreu um erro no servidor: {str(e)}'})
+        emit('resposta_servidor', {'resposta': f"Erro: {e}"})
 
-# --- Rota e Execução ---
-
+# --- Página inicial ---
 @app.route('/')
 def pagina_inicial():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    porta = int(os.getenv("PORT", 8080))
-    socketio.run(app, host='0.0.0.0', port=porta, debug=False)
+    socketio.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=False)
