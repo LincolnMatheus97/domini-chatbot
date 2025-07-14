@@ -146,7 +146,7 @@ def lidar_mensagem_usuario(dados):
     mensagem_usuario, dados_arquivo = dados.get('mensagem', ''), dados.get('arquivo')
 
     try:
-        # 1. PREPARAÇÃO DO PROMPT
+        # 1. PREPARAÇÃO DO PROMPT (LÓGICA SIMPLIFICADA)
         prompt_para_gemini = []
         if mensagem_usuario:
             prompt_para_gemini.append(mensagem_usuario)
@@ -157,36 +157,33 @@ def lidar_mensagem_usuario(dados):
             
             if 'image' in cabecalho:
                 imagem = Image.open(io.BytesIO(dados_binarios))
+                # Apenas adicionamos a imagem. Sem OCR separado. O modelo vai analisar tudo junto.
                 prompt_para_gemini.append(imagem)
-                prompt_ocr = "Se esta imagem contiver texto legível, transcreva-o. Caso contrário, responda com 'None'."
-                resposta_ocr = modelo.generate_content([prompt_ocr, imagem])
-                texto_extraido = resposta_ocr.text.strip()
-                if texto_extraido and texto_extraido.lower() != 'none':
-                    prompt_para_gemini.append(f"(Observação: o texto extraído da imagem foi: '{texto_extraido}')")
             
             elif 'pdf' in cabecalho:
-                MAX_PDF_CHARS = 8000
+                # Reduzimos o limite de caracteres para garantir que não trave por memória.
+                MAX_PDF_CHARS = 4000 
                 texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
-                prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF (primeiros {MAX_PDF_CHARS} caracteres) ---\n{texto_pdf}")
+                prompt_para_gemini.append(f"\n\n--- Início do conteúdo do PDF ---\n{texto_pdf}")
                 if len(texto_pdf_completo) > MAX_PDF_CHARS:
-                    prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido por ser muito longo) ---")
+                    prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido) ---")
 
         if not prompt_para_gemini:
              emit('stream_end')
              return
 
-        # 2. INICIA O CHAT E ENVIA A MENSAGEM
+        # 2. INICIA O CHAT E ENVIA A MENSAGEM (UMA ÚNICA VEZ)
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA FINAL "À PROVA DE BALAS")
+        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA INVERTIDA E SEGURA)
         texto_para_stream = ""
         try:
-            # Tenta ler a resposta como texto. Se falhar com ValueError, é uma chamada de função.
+            # Tenta ler a resposta como texto. Se falhar, é porque é uma chamada de função.
             texto_para_stream = resposta_do_modelo.text
         except ValueError:
-            # Se deu erro, agora sim temos certeza que é uma chamada de função.
+            # Agora temos certeza que é uma chamada de função.
             try:
                 chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
                 nome_da_funcao = chamada_de_funcao.name
@@ -199,7 +196,7 @@ def lidar_mensagem_usuario(dados):
                     texto_para_stream = resposta_final.text
                 else:
                     texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
-            except (AttributeError, IndexError, Exception) as e:
+            except Exception as e:
                 print(f"Erro ao processar function call: {e}")
                 texto_para_stream = "Ocorreu um erro ao tentar usar uma das minhas ferramentas."
         
