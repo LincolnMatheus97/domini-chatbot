@@ -176,27 +176,30 @@ def lidar_mensagem_usuario(dados):
              emit('stream_end')
              return
 
-        # 2. ATUALIZAÇÃO DO HISTÓRICO E CHAMADA DA API
+        # 2. INICIA O CHAT COM A MEMÓRIA ANTIGA E ENVIA A NOVA MENSAGEM
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DA RESPOSTA
+        # 3. PROCESSAMENTO DA RESPOSTA DO MODELO
         texto_para_stream = ""
         try:
+            # Acessa a chamada de função de forma segura
             chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
-            if chamada_de_funcao.name:
-                nome_da_funcao = chamada_de_funcao.name
-                argumentos = dict(chamada_de_funcao.args)
-                if nome_da_funcao in ferramentas_disponiveis:
-                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-                    texto_para_stream = resposta_final.text
-                else:
-                    texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
+            
+            # Se chegou aqui, é porque o modelo quer usar uma ferramenta
+            nome_da_funcao = chamada_de_funcao.name
+            argumentos = dict(chamada_de_funcao.args)
+
+            if nome_da_funcao in ferramentas_disponiveis:
+                # Executa a ferramenta e envia o resultado de volta para o modelo
+                resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                    name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
+                texto_para_stream = resposta_final.text
             else:
-                 raise AttributeError("Não é uma chamada de função válida")
+                texto_para_stream = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
         except (AttributeError, IndexError):
+            # Se qualquer parte da checagem acima falhar, significa que não é uma chamada de função, mas sim um texto simples.
             texto_para_stream = resposta_do_modelo.text
 
         # 4. ENVIO DA RESPOSTA PARA O FRONTEND
@@ -206,6 +209,8 @@ def lidar_mensagem_usuario(dados):
                 socketio.sleep(0.02)
         emit('stream_end')
 
+        # 5. ATUALIZAÇÃO DA MEMÓRIA
+        # Salva o histórico COMPLETO do objeto 'chat', que inclui todos os passos da conversa, de volta para a sessão.
         session['historico_chat'] = chat.history
 
     except Exception as e:
