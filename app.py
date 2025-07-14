@@ -157,24 +157,19 @@ def lidar_mensagem_usuario(dados):
             
             if 'image' in cabecalho:
                 imagem = Image.open(io.BytesIO(dados_binarios))
-                # Adiciona a imagem ao prompt. Diferente de antes, não vamos mais jogá-la fora.
                 prompt_para_gemini.append(imagem)
 
-                # Tentamos extrair texto como informação adicional.
                 prompt_ocr = "Se esta imagem contiver texto legível, transcreva-o. Caso contrário, responda com 'None'."
                 resposta_ocr = modelo.generate_content([prompt_ocr, imagem])
                 texto_extraido = resposta_ocr.text.strip()
                 
                 if texto_extraido and texto_extraido.lower() != 'none':
-                    # Adicionamos o texto extraído como CONTEXTO, não como o prompt principal.
                     prompt_para_gemini.append(f"(Observação: o texto extraído da imagem foi: '{texto_extraido}')")
             
             elif 'pdf' in cabecalho:
-                # CORREÇÃO PARA PDF: Trunca o texto para evitar crashes.
                 MAX_PDF_CHARS = 8000
                 texto_pdf_completo = "".join(pagina.get_text() for pagina in fitz.open(stream=dados_binarios, filetype="pdf"))
                 texto_pdf = texto_pdf_completo[:MAX_PDF_CHARS]
-                
                 prompt_para_gemini.append(f"\n\n--- CONTEÚDO DO PDF (primeiros {MAX_PDF_CHARS} caracteres) ---\n{texto_pdf}")
                 if len(texto_pdf_completo) > MAX_PDF_CHARS:
                     prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido por ser muito longo) ---")
@@ -188,29 +183,30 @@ def lidar_mensagem_usuario(dados):
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta_do_modelo = chat.send_message(prompt_para_gemini)
 
-        # 3. PROCESSAMENTO DA RESPOSTA (LÓGICA FINAL E ROBUSTA)
+        # 3. PROCESSAMENTO DA RESPOSTA
         texto_final_do_bot = ""
-        try:
-            # A forma mais segura de verificar é checar se a resposta tem o atributo 'function_call'
-            if resposta_do_modelo.candidates[0].content.parts[0].function_call.name:
-                chamada_de_funcao = resposta_do_modelo.candidates[0].content.parts[0].function_call
-                nome_da_funcao = chamada_de_funcao.name
-                argumentos = dict(chamada_de_funcao.args)
+        chamada_de_funcao = None
 
-                if nome_da_funcao in ferramentas_disponiveis:
-                    print(f"Executando ferramenta: {nome_da_funcao} com args: {argumentos}")
-                    resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
-                    # Envia o resultado da ferramenta de volta para obter a resposta em texto
-                    resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                        name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
-                    texto_final_do_bot = resposta_final.text
-                else:
-                    texto_final_do_bot = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
+        # Estrutura de verificação defensiva para evitar crashes
+        if resposta_do_modelo.candidates and resposta_do_modelo.candidates[0].content and resposta_do_modelo.candidates[0].content.parts:
+            for part in resposta_do_modelo.candidates[0].content.parts:
+                if part.function_call:
+                    chamada_de_funcao = part.function_call
+                    break 
+        
+        if chamada_de_funcao and chamada_de_funcao.name:
+            # É uma chamada de função, vamos executá-la
+            nome_da_funcao = chamada_de_funcao.name
+            argumentos = dict(chamada_de_funcao.args)
+            if nome_da_funcao in ferramentas_disponiveis:
+                resultado_da_ferramenta = ferramentas_disponiveis[nome_da_funcao](**argumentos)
+                resposta_final = chat.send_message(genai.protos.Part(function_response=genai.protos.FunctionResponse(
+                    name=nome_da_funcao, response={'result': resultado_da_ferramenta})))
+                texto_final_do_bot = resposta_final.text
             else:
-                 # Se não tem um nome de função válido, trata como texto
-                 raise AttributeError("Não é uma chamada de função válida")
-        except (AttributeError, IndexError):
-            # Se falhou em qualquer ponto da checagem de função, é uma resposta de texto.
+                texto_final_do_bot = f"Desculpe, o modelo tentou usar uma ferramenta desconhecida: {nome_da_funcao}."
+        else:
+            # Se não é uma chamada de função, com certeza é texto.
             texto_final_do_bot = resposta_do_modelo.text
 
         # 4. ENVIO DA RESPOSTA PARA O FRONTEND
@@ -220,6 +216,7 @@ def lidar_mensagem_usuario(dados):
                 socketio.sleep(0.02)
 
         emit('stream_end')
+        # Salva a resposta final do bot no histórico da sessão
         session['historico_chat'].append({'role': 'model', 'parts': [texto_final_do_bot]})
 
     except Exception as e:
