@@ -57,7 +57,7 @@ load_dotenv()
 genai.configure(api_key=os.getenv("API_KEY_GEMINAI"))
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "j8rQWR3C$!r$WFPWEgRxqz")
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # Ferramentas disponíveis
 ferramentas_disponiveis = {
@@ -112,7 +112,7 @@ def lidar_mensagem_usuario(dados):
 
         if dados_arquivo:
             cabecalho, codificado = dados_arquivo.split(",", 1)
-            if len(codificado) > (MAX_UPLOAD_BYTES * 1.37):  # Ajuste para base64
+            if len(codificado) > (MAX_UPLOAD_BYTES * 1.37):
                 emit('resposta_servidor', {'resposta': f"Arquivo muito grande (máx: {MAX_UPLOAD_MB}MB)."})
                 emit('stream_end')
                 return
@@ -145,7 +145,7 @@ def lidar_mensagem_usuario(dados):
                     prompt_para_gemini.append("\n--- (Fim do trecho. O restante do PDF foi omitido) ---")
 
         if mensagem_usuario:
-            prompt_para_gemini.insert(0, mensagem_usuario)
+            prompt_para_gemini = [mensagem_usuario] + prompt_para_gemini
 
         if not prompt_para_gemini:
             emit('stream_end')
@@ -154,22 +154,26 @@ def lidar_mensagem_usuario(dados):
         chat = modelo.start_chat(history=session['historico_chat'])
         resposta = chat.send_message(prompt_para_gemini)
 
-        # Executa ferramenta, se necessário
+        # Processamento da resposta (com ou sem função)
         try:
-            chamada = resposta.candidates[0].content.parts[0].function_call
-            if chamada.name in ferramentas_disponiveis:
-                resultado = ferramentas_disponiveis[chamada.name](**dict(chamada.args))
+            part = resposta.candidates[0].content.parts[0]
+            if hasattr(part, 'function_call') and part.function_call:
+                chamada = part.function_call
+                if chamada.name in ferramentas_disponiveis:
+                    resultado = ferramentas_disponiveis[chamada.name](**dict(chamada.args))
+                else:
+                    resultado = "Função não reconhecida."
             else:
-                resultado = resposta.text
-        except Exception:
-            resultado = resposta.text
+                resultado = part.text if hasattr(part, "text") else str(part)
+        except Exception as e:
+            resultado = f"[ERRO AO EXECUTAR FUNÇÃO] {e}"
 
         for c in resultado:
             emit('stream_chunk', {'chunk': c})
             socketio.sleep(0.02)
         emit('stream_end')
 
-        # Atualiza histórico com limite
+        # Histórico com limite
         session['historico_chat'].append({'role': 'user', 'parts': prompt_para_gemini})
         session['historico_chat'].append({'role': 'model', 'parts': [resultado]})
         session['historico_chat'] = session['historico_chat'][-8:]
