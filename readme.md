@@ -11,9 +11,9 @@ A comunicação entre o frontend e o backend é feita em tempo real usando WebSo
 
 ### ✨ Inspiração
 
-Este projeto foi desenvolvido por **Lincoln Matheus**, aluno do curso de Análise e Desenvolvimento de Sistemas no **Instituto Federal do Piauí (IFPI)**, como parte da disciplina de **Inteligência Artificial**, ministrada pelo **Prof. Dr. Otílio Paulo**.
+Este projeto foi desenvolvido por mim mesmo **Lincoln Matheus**, aluno do curso de Análise e Desenvolvimento de Sistemas no **Instituto Federal do Piauí (IFPI)**, como parte do trabalho final da disciplina de **Inteligência Artificial**, ministrada pelo **Prof. Dr. Otílio Paulo**.
 
-O nome **DominiChat** é uma homenagem a Brenda Dominique, grande amor, inspiração e companheira do autor.
+O nome **DominiChat** é uma homenagem a Brenda Dominique, meu grande amor, inspiração e companheira.
 
 ## 🚀 Funcionalidades
 
@@ -87,7 +87,7 @@ sequenceDiagram
   - **Flask:** Micro-framework web para servir a aplicação.
   - **Flask-SocketIO:** Para comunicação em tempo real (WebSockets).
 - **Inteligência Artificial:**
-  - **Google Gemini 1.5 Flash (`gemini-1.5-flash-latest`):** Modelo de linguagem utilizado para gerar as respostas e utilizar as ferramentas.
+  - **Google Gemini 1.5 Flash/Gemini 2.5 Flash (`gemini-1.5-flash-latest`, `gemini-2.5-flash`):** Modelos de linguagem utilizado para gerar as respostas e utilizar as ferramentas.
 - **APIs Externas:**
   - **Open-Meteo:** API gratuita para obter dados de previsão do tempo.
 - **Frontend:**
