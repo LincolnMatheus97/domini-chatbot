@@ -356,13 +356,18 @@ main {
     box-shadow: 0 5px 15px rgba(0,0,0,0.25);
     z-index: 2000;
     font-weight: 500;
-    transition: top 0.4s ease-in-out;
     max-width: 90%;
     text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: top 0.4s ease-in-out, opacity 0.4s ease-in-out, visibility 0s 0.4s;
 }
 
 #notificacao_customizada.visible {
     top: 20px;
+    opacity: 1;
+    visibility: visible;
+    transition: top 0.4s ease-in-out, opacity 0.4s ease-in-out;
 }
 
 @keyframes piscar {
