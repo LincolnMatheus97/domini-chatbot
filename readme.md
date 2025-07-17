@@ -144,6 +144,11 @@ Siga os passos abaixo para rodar o projeto na sua máquina.
     ```
     Acesse `http://127.0.0.1:8080` no seu navegador para ver a aplicação funcionando.
 
+```
+## 🌐 Acesso Remoto
+
+Acesse em [DominiChat](https://atv-api-gemini.up.railway.app)
+
 ## 📁 Estrutura do Projeto
 
 ```
